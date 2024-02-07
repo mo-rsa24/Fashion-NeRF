@@ -1,7 +1,7 @@
 debug: 0
 sweeps: 0
 run_wandb: 0
-node: merman # [merman, mscluster]
+node: mscluster # [merman, mscluster]
 # ========================= VITON Method
 opt_vton_yaml: 'yaml/cp_vton.yml'
 sweeps_yaml: 'sweeps/cp_vton.yml'

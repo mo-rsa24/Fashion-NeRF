@@ -1,27 +1,24 @@
 #!/bin/bash
-declare -A args
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --*)
-            args[${1#--}]=$2
-            shift
-            ;;
-    esac
-    shift
-done
-python3  FashionNeRF.py --experiment_number ${args[experiment_number]} --run_number ${args[run_number]} \
-  --experiment_from_number ${args[experiment_from_number]} --run_from_number ${args[run_from_number]} \
-  --parser_based_warp_experiment_from_number ${args[parser_based_warp_experiment_from_number]} --parser_based_warp_run_from_number ${args[parser_based_warp_run_from_number]} \
-  --parser_based_gen_experiment_from_number ${args[parser_based_gen_experiment_from_number]} --parser_based_gen_run_from_number ${args[parser_based_gen_run_from_number]} \
-  --warp_load_from_model ${args[warp_load_from_model]} --gen_load_from_model ${args[gen_load_from_model]} \
-  --parser_free_warp_experiment_from_number ${args[parser_free_warp_experiment_from_number]} --parser_free_warp_run_from_number ${args[parser_free_warp_run_from_number]} \
-  --parser_free_warp_load_from_model ${args[parser_free_warp_load_from_model]}  \
-  --parser_free_gen_experiment_from_number ${args[parser_free_gen_experiment_from_number]} --parser_free_gen_run_from_number ${args[parser_free_gen_run_from_number]} \
-  --parser_free_gen_load_from_model ${args[parser_free_gen_load_from_model]} \
-  --VITON_Type Parser_Free --VITON_Name FS_VTON --VITON_Model ${args[task]} \
-  --validate ${args[validate]} \
-  --gpu_ids 0 --device ${args[device]} --res low_res --dataset_name ${args[dataset_name]} --run_wandb ${args[run_wandb]} \
-  --niter ${args[niter]} --niter_decay ${args[niter_decay]} --display_count ${args[display_count]} --print_step ${args[print_step]} --save_period ${args[save_period]} \
-  --low_res_dataset_name VITON-Clean \
-  --viton_batch_size ${args[viton_batch_size]} --datamode ${args[datamode]} --debug ${args[debug]} --sweeps ${args[sweeps]} --val_count ${args[val_count]} \
+export EXPERIMENT_NUMBER=36
+export EXPERIMENT_FROM_NUMBER=0
+export RUN_NUMBER=99
+export RUN_FROM_NUMBER=0
+export SEED=1
+export DATASET_NAME=Rail
+export TASK="PF_Gen"
+export DEBUG=1
+export SWEEPS=0
+export DATAMODE=train
+export WANDB=0
+export DEVICE=0
+export VITON_NAME=FS_VTON
 
+./scripts/viton/viton.sh --job_name $VITON_NAME --task $TASK --experiment_number 26 --run_number 1 \
+    --experiment_from_number 36 --run_from_number 21 \
+    --parser_based_warp_experiment_from_number 30 --parser_based_warp_run_from_number 21 --warp_load_from_model Rail \
+    --parser_based_gen_experiment_from_number 32 --parser_based_gen_run_from_number 21 --gen_load_from_model Rail \
+    --parser_free_warp_experiment_from_number 34 --parser_free_warp_run_from_number 21 --parser_free_warp_load_from_model Rail \
+    --parser_free_gen_experiment_from_number 0 --parser_free_gen_run_from_number 0 --parser_free_gen_load_from_model Original \
+    --dataset_name $DATASET_NAME --validate False --device $DEVICE --load_last_step False --run_wandb $WANDB \
+    --niter 50 --niter_decay 50 --display_count 1 --print_step 1 --save_period 1 --val_count 1 \
+    --viton_batch_size 4 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED

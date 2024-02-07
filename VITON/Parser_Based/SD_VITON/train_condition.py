@@ -265,7 +265,7 @@ def log_results(log_images, log_losses, board,wandb, step, iter_start_time=None,
             wandb_images.append(get_wandb_image(value, wandb=wandb))
 
     if wandb is not None:
-        my_table = wandb.Table(columns=['Image', 'Pose Image','Clothing','Parse Clothing','Parse Clothing Mask','Warped Cloth','Warped Cloth TACO','Warped Cloth Mask TVOB','Warped Cloth Mask TACO'])
+        my_table = wandb.Table(columns=['Image', 'Pose Image','Clothing','Parse Clothing','Parse Clothing Mask','Warped Cloth TVOB','Warped Cloth TACO','Warped Cloth Mask TVOB','Warped Cloth Mask TACO'])
         my_table.add_data(*wandb_images)
         wandb.log({table: my_table, **log_losses})
     if train and iter_start_time is not None:

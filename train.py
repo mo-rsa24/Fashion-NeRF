@@ -45,8 +45,12 @@ def train_pfafn(opt, root_opt, run_wandb, sweeps, VITON_Model):
         
 def train_fsvton(opt, root_opt, run_wandb, sweeps, VITON_Model):
     from VITON.Parser_Free.FS_VTON.train.train_PBAFN_stage1_fs import train_fsvton_pb_warp_
+    from VITON.Parser_Free.FS_VTON.train.train_PBAFN_e2e_fs import train_fsvton_pb_gen_
     if VITON_Model == 'PB_Warp':
         train_fsvton_pb_warp_(opt, root_opt, run_wandb=run_wandb, sweep=sweeps)
+    elif VITON_Model == 'PB_Gen':
+        train_fsvton_pb_gen_(opt, root_opt, run_wandb=run_wandb, sweep=sweeps)
+        
 
 def train_hrviton(opt, root_opt, run_wandb, sweeps, VITON_Model):
     from VITON.Parser_Based.HR_VITON.train_condition import train_hrviton_tocg_
@@ -64,8 +68,11 @@ def train_ladi_vton(opt, root_opt, run_wandb, sweeps, VITON_Model):
     
 def train_sdviton(opt, root_opt, run_wandb, sweeps, VITON_Model):
     from VITON.Parser_Based.SD_VITON.train_condition import train_sd_viton_tocg_
+    from VITON.Parser_Based.SD_VITON.train_generator import train_tryon_
     if VITON_Model == 'TOCG':
         train_sd_viton_tocg_(opt, root_opt, run_wandb=run_wandb, sweep=sweeps)
+    elif VITON_Model == 'GEN':
+        train_tryon_(opt, root_opt, run_wandb=run_wandb, sweep=sweeps)
         
 def train_viton(opt, root_opt, run_wandb, sweeps,VITON_Name, VITON_Model):
     if VITON_Name == 'HR_VITON':

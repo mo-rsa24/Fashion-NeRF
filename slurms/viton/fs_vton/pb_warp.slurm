@@ -33,5 +33,5 @@ export CUDA_VISIBLE_DEVICES=$DEVICE
     --run_from_number $RUN_FROM_NUMBER \
     --warp_load_from_model Original --dataset_name $DATASET_NAME --device $DEVICE --load_last_step False --run_wandb $WANDB \
     --niter 50 --niter_decay 50 --display_count 10 --print_step 10 --save_period 10 --val_count 10 \
-    --viton_batch_size 8 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED
+    --viton_batch_size 32 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED
 

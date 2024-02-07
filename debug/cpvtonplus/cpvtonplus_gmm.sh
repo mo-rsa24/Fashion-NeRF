@@ -13,16 +13,6 @@ export WANDB=0
 export DEVICE=0
 export VITON_NAME=CP_VTON_plus
 
-source ~/.bashrc
-conda activate NeRF
-echo "Launching the script ${SLURM_JOB_NAME}"
-echo "Start Debug: $DEBUG"
-echo "Experiment Number: $EXPERIMENT_NUMBER"
-echo "Run Number: $RUN_NUMBER"
-echo "Dataset Name: $DATASET_NAME"
-echo "Device: $DEVICE"
-export CUDA_VISIBLE_DEVICES=$DEVICE
-
 ./scripts/viton/viton.sh --job_name $VITON_NAME --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
   --experiment_from_number $EXPERIMENT_FROM_NUMBER --run_from_number $RUN_FROM_NUMBER \
   --gmm_experiment_from_number 99 --gmm_run_from_number 0 --gmm_load_from_model Original  \

@@ -1,7 +1,8 @@
+#!/bin/bash
 export EXPERIMENT_NUMBER=12
 export EXPERIMENT_FROM_NUMBER=12
 export RUN_NUMBER=99
-export RUN_FROM_NUMBER=4
+export RUN_FROM_NUMBER=21
 export SEED=1
 export DATASET_NAME=Rail
 export TASK="TOCG"

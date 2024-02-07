@@ -155,7 +155,7 @@ def train_batch(
     train_batch_time = time.time() - batch_start_time
 
     # Visualize
-    if (global_step + 1) % opt.display_count == 0:
+    if (epoch + 1) % opt.display_count == 0:
         # Tensorboard
         a = real_image.float().to(device)
         b = person_clothes.to(device)
@@ -177,9 +177,9 @@ def train_batch(
         'Parse Clothing Mask': person_clothes_edge[0].cpu().expand(3, -1, -1), 
         'Warped Cloth': (e[0].cpu().detach() / 2 + 0.5), 
         'Warped Cloth Mask': f[0].cpu().detach().expand(3, -1, -1)}
-        log_results(log_images, log_losses, writer,wandb, global_step, iter_start_time=batch_start_time, train=True)
+        log_results(log_images, log_losses, writer,wandb, epoch, iter_start_time=batch_start_time, train=True)
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(os.path.join(opt.results_dir, f"{global_step}.jpg"), bgr)
+        cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"), bgr)
 
     return loss_all.item(), train_batch_time
 
@@ -195,7 +195,7 @@ def log_results(log_images, log_losses, board,wandb, step, iter_start_time=None,
             wandb_images.append(get_wandb_image(value, wandb=wandb))
 
     if wandb is not None:
-        my_table = wandb.Table(columns=['Image', 'Pose Image','Clothing','Parse Clothing','Parse Clothing Mask','Warped Cloth','Warped Cloth TACO','Warped Cloth Mask TVOB','Warped Cloth Mask TACO'])
+        my_table = wandb.Table(columns=['Image', 'Pose Image','Clothing','Parse Clothing','Parse Clothing Mask','Warped Cloth','Warped Cloth Mask'])
         my_table.add_data(*wandb_images)
         wandb.log({table: my_table, **log_losses})
     if train and iter_start_time is not None:
@@ -337,7 +337,7 @@ def validate_batch(
         combine = torch.cat([a[0], b[0], c[0], d[0], e[0], f[0]], 2).squeeze()
         cv_img = (combine.permute(1, 2, 0).detach().cpu().numpy() + 1) / 2
         rgb = (cv_img * 255).astype(np.uint8)
-    log_losses = {'val_warping_loss': val_warping_loss / len(validation_loader.dataset) ,'val_warping_l1':val_warping_l1 / len(validation_loader.dataset),'val_warping_vgg': val_warping_vgg / len(validation_loader)}
+    log_losses = {'val_warping_loss': val_warping_loss / len(validation_loader.dataset) ,'val_warping_l1':val_warping_l1 / len(validation_loader.dataset),'val_warping_vgg': val_warping_vgg / len(validation_loader.dataset)}
     log_images = {'Val/Image': (a[0].cpu() / 2 + 0.5), 
     'Val/Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
     'Val/Clothing': (c[0].cpu() / 2+ 0.5), 
@@ -502,8 +502,8 @@ def split_dataset(dataset,train_size=0.8):
 def make_dirs(opt):
     if not os.path.exists(os.path.join(opt.results_dir, 'val')):
         os.makedirs(os.path.join(opt.results_dir, 'val'))
-    if not os.path.exists(opt.results_dir):
-        os.makedirs(opt.results_dir)
+    if not os.path.exists(opt.tensorboard_dir):
+        os.makedirs(opt.tensorboard_dir)
     if not os.path.exists(opt.results_dir):
         os.makedirs(opt.results_dir)
     if not os.path.exists(opt.pb_warp_save_final_checkpoint_dir):
@@ -600,7 +600,7 @@ def _train_pb_warp_():
     val_loss = 0
     steps_loss = 0
 
-    for epoch in tqdm(range(start_epoch, epoch_num + 1)):
+    for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         
         epoch_start_time = time.time()
 
@@ -662,8 +662,8 @@ def _train_pb_warp_():
         warp_scheduler.step()
 
         # Visualize train loss
-        train_loss /= len(train_loader)
-        val_loss  /= len(validation_loader)
+        train_loss /= len(train_loader.dataset)
+        val_loss  /= len(validation_loader.dataset)
         
         writer.add_scalar('total_avg_warping_loss', train_loss, epoch)
         writer.add_scalar('val_total_avg_warping_loss', val_loss, epoch)

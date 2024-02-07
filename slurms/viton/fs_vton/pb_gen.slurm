@@ -21,27 +21,6 @@ nvidia-smi
 source ~/.bashrc
 conda activate NeRF
 echo "Launching the script ${SLURM_JOB_NAME}"
-
-# ./scripts/viton/viton.sh $SLURM_JOB_NAME {experiment_number}  {run_number} {experiment_from}  {run_number_from}
-# ./scripts/viton/viton.sh $SLURM_JOB_NAME 1 6 1 6
-
-
-# export EXPERIMENT_NUMBER=22
-# export EXPERIMENT_FROM_NUMBER=0
-# export RUN_NUMBER=99
-# export RUN_FROM_NUMBER=0
-# export DATASET_NAME=Rail
-# export TASK="PB_Gen"
-# export DEBUG=1
-# export SWEEPS=0
-# export SEED=1
-# export DATAMODE=train
-# export WANDB=0
-# export DEVICE=0
-# export VITON_NAME=PF_AFN
-
-
-
 echo "Start Debug: $DEBUG"
 echo "Experiment Number: $EXPERIMENT_NUMBER"
 echo "Experiment From Number: $EXPERIMENT_FROM_NUMBER"
@@ -51,20 +30,11 @@ echo "Dataset Name: $DATASET_NAME"
 echo "Device: $DEVICE"
 export CUDA_VISIBLE_DEVICES=$DEVICE
 
-
-# warp_experiment_from_number 1 - Original
-# warp_experiment_from_number 2 - Rail
-
-# gen_experiment_from_number 3 - Original
-# gen_experiment_from_number 4 - Rail
-
-
-
 # Parser_Based Gen``
 ./scripts/viton/viton.sh --job_name $VITON_NAME --task $TASK --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
-    --experiment_from_number 0 --run_from_number 0 \
-    --warp_experiment_from_number 0 --warp_run_from_number 0 --warp_load_from_model Original \
+    --experiment_from_number 30 --run_from_number 22 \
+    --warp_experiment_from_number 30 --warp_run_from_number 22 --warp_load_from_model Rail \
     --gen_experiment_from_number 0 --gen_run_from_number 0 --gen_load_from_model Original \
     --dataset_name $DATASET_NAME --device $DEVICE --load_last_step False --run_wandb $WANDB \
     --niter 50 --niter_decay 50 --display_count 10 --print_step 10 --save_period 10 --val_count 10 \
-    --viton_batch_size 4 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED
+    --viton_batch_size 32 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED

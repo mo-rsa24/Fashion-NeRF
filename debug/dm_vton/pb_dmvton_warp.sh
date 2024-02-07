@@ -18,4 +18,4 @@ export VITON_NAME=DM_VTON
     --run_from_number 0 \
     --warp_load_from_model Original --dataset_name $DATASET_NAME --device $DEVICE --load_last_step False --run_wandb $WANDB \
     --niter 50 --niter_decay 50 --display_count 1 --print_step 1 --save_period 1 --val_count 1 \
-    --viton_batch_size 8 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED
+    --viton_batch_size 32 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED

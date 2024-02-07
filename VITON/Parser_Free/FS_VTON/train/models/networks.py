@@ -34,7 +34,7 @@ class ResidualBlock(nn.Module):
 
 
 class ResUnetGenerator(nn.Module):
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64,
+    def __init__(self, input_nc, output_nc, num_downs,opt, ngf=64,
                  norm_layer=nn.BatchNorm2d, use_dropout=False):
         super(ResUnetGenerator, self).__init__()
         # construct unet structure

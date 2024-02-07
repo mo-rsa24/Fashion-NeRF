@@ -55,7 +55,7 @@ tocg_load_step_checkpoint: "mtviton_%06d.pth"
 tocg_save_final_checkpoint_dir: "/checkpoints/{}/{}"
 tocg_save_final_checkpoint: "mtviton.pth"
 tocg_load_final_checkpoint_dir: "/checkpoints/{}/{}"
-tocg_load_final_checkpoint: "tocg.pt"
+tocg_load_final_checkpoint: "mtviton.pth"
 tocg_load_from_model: Original
 
 tocg_discriminator_save_step_checkpoint_dir: "/checkpoints/{}/{}/steps"

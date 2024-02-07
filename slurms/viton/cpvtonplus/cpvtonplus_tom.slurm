@@ -29,11 +29,11 @@ echo "Dataset Name: $DATASET_NAME"
 
 
 ./scripts/viton/viton.sh --job_name $VITON_NAME --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
-  --experiment_from_number $EXPERIMENT_NUMBER --run_from_number $RUN_NUMBER \
-  --gmm_experiment_from_number $EXPERIMENT_NUMBER --gmm_run_from_number $RUN_NUMBER --gmm_load_from_model Original  \
-  --tom_experiment_from_number $EXPERIMENT_NUMBER --tom_run_from_number $RUN_NUMBER --tom_load_from_model Original \
+  --experiment_from_number 9 --run_from_number 21 \
+  --gmm_experiment_from_number 9 --gmm_run_from_number 21 --gmm_load_from_model Rail  \
+  --tom_experiment_from_number 0 --tom_run_from_number 0 --tom_load_from_model Original \
   --VITON_Type Parser_Based --VITON_Name $VITON_NAME --VITON_Model $TASK --stage $TASK --load_last_step False  \
   --res low_res --dataset_name $DATASET_NAME  --run_wandb $WANDB \
   --low_res_dataset_name viton_plus \
-  --niter 10000 --niter_decay 10000 --display_count 100 --print_step 100 --save_period 100 --val_count 100 \
+  --niter 10000 --niter_decay 10000 --display_count 1000 --print_step 1000 --save_period 1000 --val_count 1000 \
   --viton_batch_size 4 --datamode $DATAMODE --debug $DEBUG --sweeps $SWEEPS --seed $SEED

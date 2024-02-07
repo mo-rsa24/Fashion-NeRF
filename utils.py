@@ -94,6 +94,11 @@ def get_vton_opt(root_opt):
         config['checkpoint_root_dir'] = base_dict['merman_checkpoint_root_dir']
         config['tensorboard_dir'] = base_dict['merman_tensorboard_dir']
         config['results_dir'] = base_dict['merman_results_dir']
+    else:
+        config['root_dir'] = base_dict['root_dir']
+        config['checkpoint_root_dir'] = base_dict['checkpoint_root_dir']
+        config['tensorboard_dir'] = base_dict['tensorboard_dir']
+        config['results_dir'] = base_dict['results_dir']
     return config
 
 def get_vton_sweep(root_opt):

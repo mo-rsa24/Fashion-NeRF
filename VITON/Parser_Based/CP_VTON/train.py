@@ -112,6 +112,27 @@ def log_results(log_images, log_losses,board,wandb, step,iter_start_time=None,tr
     else:
         print('validation step: %8d, loss: %4f' % (step+1, log_losses['val_warping_loss']), flush=True)
 
+def log_tom_results(log_images, log_losses,board,wandb, step,iter_start_time=None,train=True):
+    table = 'Table' if train else 'Val_Table'
+    for key,value in log_losses.items():
+        board.add_scalar(key, value, step+1)
+    wandb_images = []
+    for key,value in log_images.items():
+        board.add_image(key, value, step+1)
+        if wandb is not None:
+            wandb_images.append(get_wandb_image(value, wandb=wandb))
+    if wandb is not None:
+        my_table = wandb.Table(columns=['Image','Pose Image','Parse Clothing','Warped Cloth','Warped Cloth Mask','Rendered Image','Composition'])
+        my_table.add_data(*wandb_images)
+        wandb.log({table: my_table, **log_losses})
+    if train and iter_start_time is not None:
+        t = time.time() - iter_start_time
+        print('training step: %8d, time: %.3f, composition_loss: %.4f, l1_composition_loss: %.4f, vgg_composition_loss: %.4f, mask_composition_loss: %.4f' 
+                    % (step+1, t, log_losses['composition_loss'], log_losses['l1_composition_loss'], log_losses['vgg_composition_loss'], log_losses['mask_composition_loss']), flush=True)
+    else:
+        print('validation step: %8d, composition_loss: %.4f, l1_composition_loss: %.4f, vgg_composition_loss: %.4f, mask_composition_loss: %.4f' 
+                    % (step+1, log_losses['val_composition_loss'], log_losses['val_l1_composition_loss'], log_losses['val_vgg_composition_loss'], log_losses['val_mask_composition_loss']), flush=True)
+        
 def validate_gmm(validation_loader,model,board,step,wandb=wandb):
     model.cuda()
     model.eval()
@@ -213,21 +234,18 @@ def train_tom(opt, train_loader, validation_loader, gmm_model, model, board, wan
         optimizer.step()
 
         if (step+1) % opt.display_count == 0:
-            log_images = {'Image', im[0].cpu().detach() / 2 + 0.5,
-              'Pose Image', im_pose[0].cpu().detach() / 2 + 0.5,
-              'Parse Clothing', im_c[0].cpu().detach() / 2 + 0.5,
-              'Warped Cloth', warped_cloth[0].cpu().detach() / 2 + 0.5,
-              'Warped Cloth Mask', (warped_mask*2-1)[0],
-              'Rendered Image', p_rendered[0].cpu().detach() / 2 + 0.5,
-              'Composition', p_tryon[0].cpu().detach() / 2 + 0.5}
-            log_losses = {'composition_loss', loss.item(),'l1_composition_loss', loss_l1.item(),
-            'vgg_composition_loss', loss_vgg.item(),'mask_composition_loss', loss_mask.item()}
-            log_results(log_images,log_losses, board,wandb, step,iter_start_time=iter_start_time,train=True)
+            log_images = {'Image': im[0].cpu().detach() / 2 + 0.5,
+              'Pose Image': im_pose[0].cpu().detach() / 2 + 0.5,
+              'Parse Clothing': im_c[0].cpu().detach() / 2 + 0.5,
+              'Warped Cloth': warped_cloth[0].cpu().detach() / 2 + 0.5,
+              'Warped Cloth Mask': (warped_mask*2-1)[0],
+              'Rendered Image': p_rendered[0].cpu().detach() / 2 + 0.5,
+              'Composition': p_tryon[0].cpu().detach() / 2 + 0.5}
+            log_losses = {'composition_loss': loss.item(),'l1_composition_loss': loss_l1.item(),
+            'vgg_composition_loss': loss_vgg.item(),'mask_composition_loss': loss_mask.item()}
+            log_tom_results(log_images,log_losses, board,wandb, step,iter_start_time=iter_start_time,train=True)
             t = time.time() - iter_start_time
             message = 'step: %8d, time: %.3f, loss: %.4f, l1: %.4f, vgg: %.4f, mask: %.4f' % (step+1, t, loss.item(), loss_l1.item(),  loss_vgg.item(), loss_mask.item())
-            print('step: %8d, time: %.3f, loss: %.4f, l1: %.4f, vgg: %.4f, mask: %.4f' 
-                    % (step+1, t, loss.item(), loss_l1.item(), 
-                    loss_vgg.item(), loss_mask.item()), flush=True)
             print_log(os.path.join(opt.results_dir, 'log.txt'), message)
             
         if (step + 1) % opt.val_count == 0:
@@ -294,18 +312,20 @@ def validate_tom(validation_loader,model,gmm_model, board, step, wandb=wandb):
             val_l1_composition_loss += loss_l1
             val_vgg_composition_loss += loss_vgg
             val_mask_composition_loss += loss_mask
+            
             if opt.clip_warping:
                 warped_cloth = warped_cloth * warped_mask + torch.ones_like(warped_cloth) * (1 - warped_mask)
-        log_images = {'Val/Image', im[0].cpu().detach() / 2 + 0.5,
-            'Val/Pose Image', im_pose[0].cpu().detach() / 2 + 0.5,
-            'Val/Parse Clothing', im_c[0].cpu().detach() / 2 + 0.5,
-            'Val/Warped Cloth', warped_cloth[0].cpu().detach() / 2 + 0.5,
-            'Val/Warped Cloth Mask', (warped_mask*2-1)[0],
-            'Val/Rendered Image', p_rendered[0].cpu().detach() / 2 + 0.5,
-            'Val/Composition', p_tryon[0].cpu().detach() / 2 + 0.5}
-        log_losses = {'val_composition_loss', val_composition_loss / len(validation_loader.dataset),'val_l1_composition_loss', val_l1_composition_loss / len(validation_loader.dataset),
-        'val_vgg_composition_loss', val_vgg_composition_loss / len(validation_loader.dataset),'val_mask_composition_loss', val_mask_composition_loss / len(validation_loader.dataset)}
-        log_results(log_images,log_losses, board,wandb, step,train=False)
+            processed_batches += 1
+        log_images = {'Val/Image': im[0].cpu().detach() / 2 + 0.5,
+            'Val/Pose Image': im_pose[0].cpu().detach() / 2 + 0.5,
+            'Val/Parse Clothing': im_c[0].cpu().detach() / 2 + 0.5,
+            'Val/Warped Cloth': warped_cloth[0].cpu().detach() / 2 + 0.5,
+            'Val/Warped Cloth Mask': (warped_mask*2-1)[0],
+            'Val/Rendered Image': p_rendered[0].cpu().detach() / 2 + 0.5,
+            'Val/Composition': p_tryon[0].cpu().detach() / 2 + 0.5}
+        log_losses = {'val_composition_loss': val_composition_loss / len(validation_loader.dataset),'val_l1_composition_loss': val_l1_composition_loss / len(validation_loader.dataset),
+        'val_vgg_composition_loss': val_vgg_composition_loss / len(validation_loader.dataset),'val_mask_composition_loss': val_mask_composition_loss / len(validation_loader.dataset)}
+        log_tom_results(log_images,log_losses, board,wandb, step,train=False)
         
             
         

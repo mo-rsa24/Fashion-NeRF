@@ -414,11 +414,8 @@ def train_try_on_generator(opt, train_loader,validation_loader, test_loader,boar
 
         if (step + 1) % opt.val_count == 0:
             validate_gen(opt, step, generator, discriminator, gen,gauss,model, criterionFeat,criterionGAN,criterionVGG,validation_loader,board,wandb)
+            generator.train()
         if (step + 1) % opt.save_period == 0:
-            t = time.time() - iter_start_time
-            print("step: %8d, time: %.3f, G_loss: %.4f, G_adv_loss: %.4f, D_loss: %.4f, D_fake_loss: %.4f, D_real_loss: %.4f"
-                  % (step + 1, t, loss_gen.item(), G_losses['GAN'].mean().item(), loss_dis.item(),
-                     D_losses['D_Fake'].mean().item(), D_losses['D_Real'].mean().item()), flush=True)
             save_checkpoint(generator,opt.gen_save_step_checkpoint % (step + 1), opt)    
             save_checkpoint(discriminator,opt.gen_discriminator_save_step_checkpoint % (step + 1), opt)
 
@@ -442,11 +439,12 @@ def log_results(log_images, log_losses, board,wandb, step, iter_start_time=None,
         wandb.log({table: my_table, **log_losses})
     if train and iter_start_time is not None:
         t = time.time() - iter_start_time
-        print("training step: %8d, time: %.3f\nloss G: %.4f, L1_cloth loss: %.4f, VGG loss: %.4f, TV loss: %.4f CE: %.4f, G GAN: %.4f\nloss D: %.4f, D real: %.4f, D fake: %.4f"
-                % (step + 1, t, log_losses['warping_loss'], log_losses['warping_l1'], log_losses['warping_vgg'], log_losses['warping_total_variation_loss'], log_losses['warping_cross_entropy_loss'], log_losses['gan'], log_losses['discriminator'], log_losses['pred_real'], log_losses['pred_fake']), flush=True)
+        print("training step: %8d, time: %.3f\n composition_loss: %.4f, gan_composition_loss: %.4f, feat_composition_loss: %.4f, vgg_composition_loss: %.4f composition_loss_disc: %.4f, fake_composition_loss_disc: %.4f\n real_composition_loss_disc: %.4f"
+                % (step + 1, t, log_losses['composition_loss'], log_losses['gan_composition_loss'], log_losses['feat_composition_loss'], log_losses['vgg_composition_loss'], log_losses['composition_loss_disc'], log_losses['fake_composition_loss_disc'], log_losses['real_composition_loss_disc']), flush=True)
     else:
-        print("validation step: %8d, loss G: %.4f, L1_cloth loss: %.4f, VGG loss: %.4f, TV loss: %.4f CE: %.4f, G GAN: %.4f"
-                % (step + 1,  log_losses['val_warping_loss'], log_losses['val_warping_l1'], log_losses['val_warping_vgg'], log_losses['val_warping_total_variation_loss'], log_losses['val_warping_cross_entropy_loss'], log_losses['val_gan']), flush=True)
+        print("validation step: %8d, \n composition_loss: %.4f, gan_composition_loss: %.4f, feat_composition_loss: %.4f, vgg_composition_loss: %.4f"
+                % (step + 1, log_losses['val_composition_loss'], log_losses['val_gan_composition_loss'], log_losses['val_feat_composition_loss'], log_losses['val_vgg_composition_loss']), flush=True)
+        
 
 def validate_gen(opt, step, generator,discriminator, tocg,gauss,model, criterionFeat,criterionGAN,criterionVGG, validation_loader,board,wandb):
     generator.eval()
@@ -599,6 +597,7 @@ def validate_gen(opt, step, generator,discriminator, tocg,gauss,model, criterion
             gan_composition_loss += G_losses['GAN'].mean().item()
             feat_composition_loss += G_losses['GAN_Feat'].mean().item()
             vgg_composition_loss += G_losses['VGG'].mean().item()
+            processed_batches += 1
         log_images = {'Val/Image': (im[0].cpu() / 2 + 0.5),
         'Val/Pose Image': (openpose[0].cpu() / 2 + 0.5),
         'Val/Parse Clothing': (parse_cloth[0].cpu() / 2 + 0.5),
@@ -606,11 +605,11 @@ def validate_gen(opt, step, generator,discriminator, tocg,gauss,model, criterion
         'Val/Warped Cloth': (warped_cloth_paired[0].cpu().detach() / 2 + 0.5),
         'Val/Warped Cloth Mask': warped_clothmask_paired[0].cpu().detach().expand(3, -1, -1),
         'Val/Composition': out}
-        log_losses = {'val_composition_loss': composition_loss,
-        'val_gan_composition_loss': gan_composition_loss,
-        'val_feat_composition_loss': feat_composition_loss,
-        'val_vgg_composition_loss': vgg_composition_loss}
-        log_results(log_images, log_losses, board,wandb, step, iter_start_time=None, train=False)
+        log_losses = {'val_composition_loss': composition_loss / len(validation_loader.dataset),
+        'val_gan_composition_loss': gan_composition_loss / len(validation_loader.dataset),
+        'val_feat_composition_loss': feat_composition_loss / len(validation_loader.dataset),
+        'val_vgg_composition_loss': vgg_composition_loss / len(validation_loader.dataset)}
+        log_results(log_images, log_losses, board,wandb, step, train=False)
         avg_distance += model.forward(T2(im), T2(output_paired))
             
     avg_distance = avg_distance / 1
@@ -663,6 +662,10 @@ def make_dirs(opt):
         os.makedirs(opt.tensorboard_dir)
     if not os.path.exists(opt.gen_save_final_checkpoint_dir):
         os.makedirs(opt.gen_save_final_checkpoint_dir)
+    if not os.path.exists(os.path.join(opt.results_dir,'val')):
+        os.makedirs(os.path.join(opt.results_dir,'val'))
+    if not os.path.exists(opt.results_dir):
+        os.makedirs(opt.results_dir)
     if not os.path.exists(opt.gen_save_step_checkpoint_dir):
         os.makedirs(opt.gen_save_step_checkpoint_dir)
     if not os.path.exists(opt.gen_discriminator_save_step_checkpoint_dir):
@@ -709,9 +712,16 @@ def _train_tryon_():
         os.makedirs(opt.results_dir)
         with open(log_path, 'w') as file:
             file.write(f"Hello, this is experiment {root_opt.experiment_run} \n")
-            
+    opt.fine_height = 1024
+    opt.fine_width = 768
     # print("Start to train %s!" % opt.name)
     train_dataset = FashionNeRFDataset(root_opt, opt, viton=True, model='viton')
+    train_loader = FashionDataLoader(train_dataset, opt.viton_batch_size, opt.viton_workers, True)
+    test_dataset = FashionNeRFDataset(root_opt, opt, viton=True, mode='test', model='viton')
+    test_loader = FashionDataLoader(test_dataset, opt.num_test_visualize, 1, False)
+    validation_dataset = Subset(test_dataset, np.arange(50))
+    validation_loader = FashionDataLoader(validation_dataset, opt.num_test_visualize, root_opt.viton_workers, False)
+    
     # warping-seg Model
     input1_nc = 4  # cloth + cloth-mask
     input2_nc = opt.semantic_nc + 3  # parse_agnostic + densepose
@@ -733,12 +743,6 @@ def _train_tryon_():
     # lpips
     model = models.PerceptualLoss(model='net-lin',net='alex',use_gpu=True)
 
-    train_loader = FashionDataLoader(train_dataset, opt.viton_batch_size, opt.viton_workers, True)
-    test_dataset = FashionNeRFDataset(root_opt, opt, viton=True, mode='test', model='viton')
-    test_loader = FashionDataLoader(test_dataset, opt.num_test_visualize, 1, False)
-    validation_dataset = Subset(test_dataset, np.arange(50))
-    validation_loader = FashionDataLoader(validation_dataset, opt.num_test_visualize, root_opt.viton_workers, False)
-    
     # Load gen Checkpoint
     last_step = root_opt.load_last_step if type(root_opt.load_last_step) == bool else eval(root_opt.load_last_step)
     if last_step:
@@ -754,6 +758,7 @@ def _train_tryon_():
     elif os.path.exists(opt.gen_discriminator_load_final_checkpoint):
         load_checkpoint(discriminator, opt.gen_discriminator_load_final_checkpoint)
         print_log(log_path, f'Load pretrained model from {opt.gen_discriminator_load_final_checkpoint}')
+    # if opt.VITON_Model == 'GEN':
     train_try_on_generator(opt, train_loader,validation_loader,  test_loader, board,gen, generator, discriminator, model, wandb)
 
     save_checkpoint(generator,opt.gen_save_final_checkpoint, opt)

@@ -508,6 +508,7 @@ class AFWM(nn.Module):
         self.image_FPN = RefinePyramid(num_filters)
         self.cond_FPN = RefinePyramid(num_filters)
         self.aflow_net = AFlowNet(len(num_filters))
+        self.opt = opt
         self.old_lr = opt.lr
         self.old_lr_warp = opt.lr*0.2
 
@@ -523,20 +524,16 @@ class AFWM(nn.Module):
 
 
     def update_learning_rate(self,optimizer):
-        lrd = opt.lr / opt.niter_decay
+        lrd = self.opt.lr / self.opt.niter_decay
         lr = self.old_lr - lrd
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-        if opt.verbose:
-            print('update learning rate: %f -> %f' % (self.old_lr, lr))
         self.old_lr = lr
 
     def update_learning_rate_warp(self,optimizer):
-        lrd = 0.2 * opt.lr / opt.niter_decay
+        lrd = 0.2 * self.opt.lr / self.opt.niter_decay
         lr = self.old_lr_warp - lrd
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-        if opt.verbose:
-            print('update learning rate: %f -> %f' % (self.old_lr_warp, lr))
         self.old_lr_warp = lr
 

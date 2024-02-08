@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -t 72:00:00
-#SBATCH --exclude=mscluster68,mscluster48,mscluster82,mscluster61
+#SBATCH --exclude=mscluster68,mscluster48,mscluster82,mscluster61,mscluster49
 #SBATCH --ntasks=1
 #SBATCH --partition=bigbatch
 

@@ -271,9 +271,21 @@ def log_results(log_images, log_losses,board,wandb, step,iter_start_time=None,tr
         wandb.log({table: my_table, **log_losses})
     if train and iter_start_time is not None:
         t = time.time() - iter_start_time
-        print('training step: %8d, time: %.3f, composition_loss: %4f warping loss: %4f warping_l1 loss: %4f warping_vgg loss: %4f gen loss: %4f' % (step+1, t, log_losses['composition_loss'],log_losses['warping_loss'],log_losses['warping_l1'],log_losses['warping_vgg'], log_losses['loss_gen']), flush=True)
+        print('training step: %8d, time: %.3f, warping_loss: %4f l1_composition_loss: %4f vgg_composition_loss: %4f gan_composition_loss: %4f composition_loss: %4f' 
+              % (step+1, t, 
+                 log_losses['warping_loss'],
+                 log_losses['l1_composition_loss'],
+                 log_losses['vgg_composition_loss'],
+                 log_losses['gan_composition_loss'],
+                 log_losses['composition_loss']), flush=True)
     else:
-        print('validation step: %8d, time: %.3f, composition_loss: %4f warping loss: %4f warping_l1 loss: %4f warping_vgg loss: %4f gen loss: %4f' % (step+1, t, log_losses['val_composition_loss'],log_losses['val_warping_loss'],log_losses['val_warping_l1'],log_losses['val_warping_vgg'], log_losses['val_loss_gen']), flush=True)
+        print('validation step: %8d, val_warping_loss: %4f val_l1_composition_loss: %4f val_vgg_composition_loss: %4f val_gan_composition_loss: %4f val_composition_loss: %4f' 
+              % (step+1,  
+                 log_losses['val_warping_loss'],
+                 log_losses['val_l1_composition_loss'],
+                 log_losses['val_vgg_composition_loss'],
+                 log_losses['val_gan_composition_loss'],
+                 log_losses['val_composition_loss']), flush=True)
 
 def validate_batch(opt, root_opt,validation_loader,models,criterions,device,writer,wandb=None,epoch=0):
     warp_model, gen_model = models['warp'], models['gen']

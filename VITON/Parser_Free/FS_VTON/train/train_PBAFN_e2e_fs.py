@@ -197,10 +197,10 @@ def train_batch(opt, train_loader,model_gen, model,total_steps, epoch,epoch_iter
     model.train()
     total_loss_warping = 0
     dataset_size = len(train_loader)
-    train_warping_loss = 0 
-    train_warping_l1 = 0 
-    train_warping_vgg = 0
-    train_gen_loss = 0
+    train_warping_loss = 0
+    train_l1_composition_loss = 0
+    train_vgg_composition_loss = 0
+    train_gan_composition_loss = 0
     train_composition_loss = 0
     for i, data in enumerate(train_loader):
         iter_start_time = time.time()
@@ -331,9 +331,9 @@ def train_batch(opt, train_loader,model_gen, model,total_steps, epoch,epoch_iter
 
 
         train_warping_loss += warp_loss.item()
-        train_warping_l1 += loss_l1.item()
-        train_warpng_vgg += loss_vgg.item()
-        train_gen_loss += gen_loss.item()
+        train_l1_composition_loss += loss_l1.item()
+        train_vgg_composition_loss += loss_vgg.item()
+        train_gan_composition_loss += gen_loss.item()
         train_composition_loss += loss_all.item()
 
         optimizer_warp.zero_grad()
@@ -344,7 +344,6 @@ def train_batch(opt, train_loader,model_gen, model,total_steps, epoch,epoch_iter
 
         if epoch_iter >= dataset_size:
             break
-
     if (epoch + 1) % opt.display_count == 0:
         a = real_image.float().cuda()
         b = person_clothes.cuda()
@@ -359,8 +358,9 @@ def train_batch(opt, train_loader,model_gen, model,total_steps, epoch,epoch_iter
         k = p_tryon
         combine = torch.cat([a[0],b[0],c[0],d[0],e[0],f[0],g[0],h[0],i[0],j[0],k[0]], 2).squeeze()
         cv_img = (combine.permute(1,2,0).detach().cpu().numpy()+1)/2
-        log_losses = {'warping_loss': train_warping_loss / len(train_loader.dataset) ,'warping_l1': train_warping_l1 / len(train_loader.dataset),'warping_vgg': train_warping_vgg / len(train_loader.dataset),
-                'loss_gen':train_gen_loss / len(train_loader.dataset),'composition_loss': train_composition_loss / len(train_loader.dataset)}
+        
+        log_losses = {'warping_loss': train_warping_loss / len(train_loader.dataset) ,'l1_composition_loss': train_l1_composition_loss / len(train_loader.dataset),'vgg_composition_loss': train_vgg_composition_loss / len(train_loader.dataset),
+                'gan_composition_loss':train_gan_composition_loss / len(train_loader.dataset),'composition_loss': train_composition_loss / len(train_loader.dataset)}
         log_images = {'Image': (a[0].cpu() / 2 + 0.5), 
         'Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
         'Clothing': (c[0].cpu() / 2 + 0.5), 
@@ -394,20 +394,32 @@ def log_results(log_images, log_losses,board,wandb, step,iter_start_time=None,tr
         wandb.log({table: my_table, **log_losses})
     if train and iter_start_time is not None:
         t = time.time() - iter_start_time
-        print('training step: %8d, time: %.3f, composition_loss: %4f warping loss: %4f warping_l1 loss: %4f warping_vgg loss: %4f gen loss: %4f' % (step+1, t, log_losses['composition_loss'],log_losses['warping_loss'],log_losses['warping_l1'],log_losses['warping_vgg'], log_losses['loss_gen']), flush=True)
+        print('training step: %8d, time: %.3f, warping_loss: %4f l1_composition_loss: %4f vgg_composition_loss: %4f gan_composition_loss: %4f composition_loss: %4f' % 
+              (step+1, t, 
+               log_losses['warping_loss'],
+               log_losses['l1_composition_loss'],
+               log_losses['vgg_composition_loss'],
+               log_losses['gan_composition_loss'], 
+               log_losses['composition_loss']), flush=True)
     else:
-        print('validation step: %8d, composition_loss: %4f warping loss: %4f warping_l1 loss: %4f warping_vgg loss: %4f gen loss: %4f' % (step+1, log_losses['val_composition_loss'],log_losses['val_warping_loss'],log_losses['val_warping_l1'],log_losses['val_warping_vgg'], log_losses['val_loss_gen']), flush=True)
+        print('validation step: %8d,  val_warping_loss: %4f val_l1_composition_loss: %4f val_vgg_composition_loss: %4f val_gan_composition_loss: %4f val_composition_loss: %4f' % 
+              (step+1,
+               log_losses['val_warping_loss'],
+               log_losses['val_l1_composition_loss'],
+               log_losses['val_vgg_composition_loss'],
+               log_losses['val_gan_composition_loss'], 
+               log_losses['val_composition_loss']), flush=True)
         
 def validate_batch(opt, validation_loader,model_gen, model,total_steps, epoch,criterionL1,criterionVGG,optimizer_gen,optimizer_warp, writer, step_per_batch):
   model_gen.eval()
   model.eval()
   total_loss_warping = 0
   dataset_size = len(validation_loader)
-  warping_loss = 0
-  warping_l1 = 0
-  warping_vgg = 0
-  loss_gen =0 
-  composition_loss = 0
+  valid_warping_loss = 0
+  valid_l1_composition_loss = 0
+  valid_vgg_composition_loss = 0
+  valid_gan_composition_loss = 0
+  valid_composition_loss = 0
   for i, data in enumerate(validation_loader):
     iter_start_time = time.time()
 
@@ -559,15 +571,16 @@ def validate_batch(opt, validation_loader,model_gen, model,total_steps, epoch,cr
     combine = torch.cat([a[0],b[0],c[0],d[0],e[0],f[0],g[0],h[0],i[0],j[0],k[0]], 2).squeeze()
     cv_img = (combine.permute(1,2,0).detach().cpu().numpy()+1)/2
     rgb = (cv_img * 255).astype(np.uint8)
-    warping_loss += warp_loss.item()
-    warping_l1 += loss_l1.item()
-    warping_vgg += loss_vgg.item()
-    loss_gen += gen_loss.item()
-    composition_loss += loss_all.item()
+    valid_warping_loss += warp_loss.item()
+    valid_l1_composition_loss += loss_l1.item()
+    valid_vgg_composition_loss += loss_vgg.item()
+    valid_gan_composition_loss += gen_loss.item()
+    valid_composition_loss += loss_all.item()
+    
     rgb = (cv_img*255).astype(np.uint8)
     bgr = cv2.cvtColor(rgb,cv2.COLOR_RGB2BGR)
-  log_losses = {'val_warping_loss': warping_loss / len(validation_loader.dataset) ,'val_warping_l1': warping_l1 / len(validation_loader.dataset) ,'val_warping_vgg': warping_vgg / len(validation_loader.dataset),
-                      'val_loss_gen':loss_gen / len(validation_loader.dataset) ,'val_composition_loss': composition_loss / len(validation_loader.dataset) }
+  log_losses = {'val_warping_loss': valid_warping_loss / len(validation_loader.dataset) ,'val_l1_composition_loss': valid_l1_composition_loss / len(validation_loader.dataset),'val_vgg_composition_loss': valid_vgg_composition_loss / len(validation_loader.dataset),
+                'val_gan_composition_loss':valid_gan_composition_loss / len(validation_loader.dataset),'val_composition_loss': valid_composition_loss / len(validation_loader.dataset)}
   log_images = {'Val/Image': (a[0].cpu() / 2 + 0.5), 
     'Val/Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
     'Val/Clothing': (c[0].cpu() / 2 + 0.5), 

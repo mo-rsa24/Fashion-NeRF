@@ -20,17 +20,18 @@ echo ------------------------------------------------------
 nvidia-smi
 source ~/.bashrc
 conda activate NeRF
-export CUDA_VISIBLE_DEVICES=0
 echo "Launching the script ${SLURM_JOB_NAME}"
 echo "Start Debug: $DEBUG"
 echo "Experiment Number: $EXPERIMENT_NUMBER"
 echo "Run Number: $RUN_NUMBER"
 echo "Dataset Name: $DATASET_NAME"
+echo "Device: $DEVICE"
+export CUDA_VISIBLE_DEVICES=$DEVICE
 
 
 ./scripts/viton/viton.sh --job_name $VITON_NAME --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
-  --experiment_from_number 9 --run_from_number 28 \
-  --gmm_experiment_from_number 9 --gmm_run_from_number 28 --gmm_load_from_model Rail  \
+  --experiment_from_number 9 --run_from_number 29 \
+  --gmm_experiment_from_number 9 --gmm_run_from_number 29 --gmm_load_from_model Rail  \
   --tom_experiment_from_number 0 --tom_run_from_number 0 --tom_load_from_model Original \
   --VITON_Type Parser_Based --VITON_Name $VITON_NAME --VITON_Model $TASK --stage $TASK --load_last_step False  \
   --res low_res --dataset_name $DATASET_NAME  --run_wandb $WANDB \

@@ -4,7 +4,7 @@ program: train.py
 method: bayes
 metric:
   goal: minimize
-  name: val_warping_loss
+  name: val_composition_loss
 parameters:
   niter: 
     value: 10000

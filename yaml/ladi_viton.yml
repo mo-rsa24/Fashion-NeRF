@@ -1,48 +1,70 @@
-debug: False
-question: 'Training DM_VTON on rail data after loading it from Original VITON data'
-impact: 'Low-resolution VITON for parser-free networks allowing real-time inference'
-intent: 'Load the parser based warped trained on original data to pretrain the generator.'
+debug: 0
+sweeps: 0
+run_wandb: 0
+# ========================= Training intention
+intent: 'Pretrain parser based warping for HR_VITON and save the weights so that we can fine-tune on rail data ' # What is the intent of the research
 what_does_it_have: 'Parser Based warping trained on Original data'
 rail_data: 'Contains 8 Unique Individual-Clothing Pairs'
+
 opt_vton_yaml: 'ladi_viton.yml'
+
+# ========================= Run Hyperparameters
 run_number: 1
 experiment_number: 1
 experiment_run: "experiment_{}/run_{}"
+
+
 load_last_step: False
-project: "runs/test"
-device: 1
-VITON_Type: "Parser_Free"
-low_res_viton_dataset_name: "VITON-Clean"
-VITON_Name: "Ladi_VTON"
-VITON_selection_dir: "VITON/{}/{}"
-res: "low_res"
-dataset_name: "Original"
-training_method: "warping"
+
+
+
+# ========================= Machine Hyperparameters
 gpu_ids: ""
+res: "low_res"
+device: 1
 batch_size: 4
-try_on_fine_height: 1024
 num_vstar: 16
 datamode: "train"
-VITON_Model: "PB_Warp"
+cuda: true
+
+# ========================= VITON dataset
+low_res_viton_dataset_name: "VITON-Clean"
+dataset_name: "Original"
+dataset: 'vitonhd' # Assuming this is the intended final value
+height: 512
+width: 384
+training_method: "warping"
+try_on_fine_height: 1024
+
+# ========================= VITON information
+VITON_Type: "Parser_Based"
+VITON_Name: "Ladi_VTON"
+VITON_Model: "TPS"
+VITON_Type: "Parser_Free"
+# ========================= Directory
+VITON_selection_dir: "VITON/{}/{}"
 rail_dir: "data/VITON/{}/processed/{}/{}"
 original_dir: "data/VITON/{}/processed/{}/{}"
-# root_dir: '/mnt/data/home/molefe/Playground/Synthesising Virtual Fashion Try-On with Neural Radiance Fields/Fashion-NeRF'
 root_dir: "/home-mscluster/mmolefe/Playground/Synthesising Virtual Fashion Try-On with Neural Radiance Fields/Fashion-SuperNeRF"
-# root_dir: '/mnt/data/home/molefe/Playground/Synthesising Virtual Fashion Try-On with Neural Radiance Fields/Fashion-NeRF'
 checkpoint_root_dir: "/gluster/mmolefe"
 model_dir: "VITON/Parser_Free/DM_VTON/{}"
 dataroot: "../data/VITON-Clean"
 valroot: "../data/VITON-Clean"
 tensorboard_dir: "./tensorboard/{}/{}"
 results_dir: "./results/{}/{}"
-# Checkpoint dirs simplified to avoid repetition
+
+
+# ========================= TPS
 tps_save_step_checkpoint_dir: "./checkpoints/{}/{}/steps"
 tps_save_final_checkpoint_dir: "./checkpoints/{}/{}"
-# Checkpoint filenames
 tps_save_step_checkpoint: "tps_%06d.pt"
 tps_save_final_checkpoint: "tps.pt"
-# Repeated for VTO, Emasc, and Inversion with similar patterns
+tps_checkpoint: ""
+tps_discriminator_checkpoint: ""
+
 resume: false
+
+# =====================  Sweep Hyperparameters
 use_dropout: false
 align_corners: false
 verbose: false
@@ -53,38 +75,25 @@ momentum: 0.5
 seed: 1234
 epsilon: 0.001
 lr: 0.00005
-tps_checkpoint: ""
-tps_discriminator_checkpoint: ""
 wandb_name: wandb_name
 tps_load_from_model: Original
 tps_discriminator_load_from_model: Rail
-cuda: true
-# Recordable Hyperparameters
 niter: 50
 niter_decay: 50
 display_count: 1
 print_step: 1
 save_period: 1
 viton_batch_size: 4
-run_wandb: True
-continue_train: False
 val_count: 1
 const_weight: 0.01
 dense: False
 only_extraction: False
 vgg_weight: 0.25
 l1_weight: 1
-save_path: None
 epochs_tps: 50
 epochs_refinement: 50
-dataset: 'vitonhd' # Assuming this is the intended final value
-height: 512
-width: 384
-viton_workers: 1
-pretrained_model_name_or_path: "stabilityai/stable-diffusion-2-inpainting"
-category: upper_body
 num_train_epochs: 100
-enable_xformers_memory_efficient_attention: True
+num_inference_steps: 50
 max_train_steps: 40001
 gradient_accumulation_steps: 1
 learning_rate: 0.00001
@@ -96,18 +105,28 @@ adam_beta2: 0.999
 adam_weight_decay: 0.01
 adam_epsilon: 1e-08
 max_grad_norm: 1.0
-mixed_precision: "no"
-report_to: "wandb"
 checkpointing_steps: 10000
-resume_from_checkpoint: False
 num_workers: 8
 num_workers_test: 8
-test_order: "paired"
 emasc_type: "nonlinear"
-num_inference_steps: 50
-use_png: True
 emasc_kernel: 3
 emasc_padding: 1
-description: "Inversion adapter training script."
 guidance_scale: 7.5
+
+
+
+# ===================== Experiment Hyperparameters
+save_path: None
+viton_workers: 1
+description: "Inversion adapter training script."
+pretrained_model_name_or_path: "stabilityai/stable-diffusion-2-inpainting"category: upper_body
+enable_xformers_memory_efficient_attention: True
+mixed_precision: "no"
+report_to: "wandb"
+resume_from_checkpoint: False
+test_order: "paired"
+continue_train: False
+
+# ===================== Input/Output Hyperparameters
+use_png: True
 compute_metrics: True

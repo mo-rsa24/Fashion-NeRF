@@ -364,6 +364,9 @@ def train_batch(opt, root_opt, train_loader, warp_model,step, total_steps, epoch
     warp_model.train()
     total_loss_warping = 0
     dataset_size = len(train_loader)
+    train_warping_loss = 0
+    train_warping_l1 = 0
+    train_warping_vgg = 0
     for i, data in enumerate(train_loader):
         iter_start_time = time.time()
 
@@ -433,33 +436,34 @@ def train_batch(opt, root_opt, train_loader, warp_model,step, total_steps, epoch
         optimizer_warp.step()
         total_loss_warping += loss_all.item()
         ############## Display results and errors ##########
-        if (epoch + 1) % opt.display_count == 0:
-            a = real_image.float().cuda()
-            b = person_clothes.cuda()
-            c = clothes.cuda()
-            d = torch.cat([densepose_fore.cuda(),densepose_fore.cuda(),densepose_fore.cuda()],1)
-            e = warped_cloth
-            f = torch.cat([warped_prod_edge,warped_prod_edge,warped_prod_edge],1)
-            combine = torch.cat([a[0],b[0],c[0],d[0],e[0],f[0]], 2).squeeze()
-            cv_img=(combine.permute(1,2,0).detach().cpu().numpy()+1)/2
-            rgb=(cv_img*255).astype(np.uint8)
-            log_losses = {'warping_loss': loss_all.item() ,'warping_l1': loss_l1.item(),'warping_vgg': loss_vgg.item()}
-            log_images = {'Image': (a[0].cpu() / 2 + 0.5), 
-            'Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
-            'Clothing': (c[0].cpu() / 2 + 0.5), 
-            'Parse Clothing': (b[0].cpu() / 2 + 0.5), 
-            'Parse Clothing Mask': person_clothes_edge[0].cpu().expand(3, -1, -1), 
-            'Warped Cloth': (e[0].cpu().detach() / 2 + 0.5), 
-            'Warped Cloth Mask': f[0].cpu().detach().expand(3, -1, -1)}
-            log_results(log_images, log_losses, writer,wandb, step, iter_start_time=iter_start_time, train=True)
-            bgr=cv2.cvtColor(rgb,cv2.COLOR_RGB2BGR)
-            cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"),bgr)
-
+        train_warping_loss += loss_all.item()
+        train_warping_l1 += loss_l1.item()
+        train_warping_vgg += loss_vgg.item()
         if epoch >= dataset_size:
             break
-        # break
+        
     # end of epoch 
-
+    if (epoch + 1) % opt.display_count == 0:
+        a = real_image.float().cuda()
+        b = person_clothes.cuda()
+        c = clothes.cuda()
+        d = torch.cat([densepose_fore.cuda(),densepose_fore.cuda(),densepose_fore.cuda()],1)
+        e = warped_cloth
+        f = torch.cat([warped_prod_edge,warped_prod_edge,warped_prod_edge],1)
+        combine = torch.cat([a[0],b[0],c[0],d[0],e[0],f[0]], 2).squeeze()
+        cv_img=(combine.permute(1,2,0).detach().cpu().numpy()+1)/2
+        rgb=(cv_img*255).astype(np.uint8)
+        log_losses = {'warping_loss': train_warping_loss / len(train_loader.dataset) ,'warping_l1':train_warping_l1 / len(train_loader.dataset),'warping_vgg': train_warping_vgg / len(train_loader.dataset)}
+        log_images = {'Image': (a[0].cpu() / 2 + 0.5), 
+        'Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
+        'Clothing': (c[0].cpu() / 2 + 0.5), 
+        'Parse Clothing': (b[0].cpu() / 2 + 0.5), 
+        'Parse Clothing Mask': person_clothes_edge[0].cpu().expand(3, -1, -1), 
+        'Warped Cloth': (e[0].cpu().detach() / 2 + 0.5), 
+        'Warped Cloth Mask': f[0].cpu().detach().expand(3, -1, -1)}
+        log_results(log_images, log_losses, writer,wandb, step, iter_start_time=iter_start_time, train=True)
+        bgr=cv2.cvtColor(rgb,cv2.COLOR_RGB2BGR)
+        cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"),bgr)
     ### save model for this epoch
     if epoch % opt.save_period == 0:
         print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))        

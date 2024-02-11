@@ -623,6 +623,6 @@ def _train_sd_viton_tocg_():
     # Save Checkpoint
     if wandb is not None:
         wandb.finish()
-    save_checkpoint(tocg,opt.tocg_save_final_checkpoint, opt)
-    save_checkpoint(D,opt.tocg_discriminator_save_final_checkpoint , opt)
+    save_checkpoint(tocg,opt.tocg_save_final_checkpoint)
+    save_checkpoint(D,opt.tocg_discriminator_save_final_checkpoint )
     print("Finished training !" )

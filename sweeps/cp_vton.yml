@@ -7,12 +7,10 @@ metric:
   name: val_warping_loss
 parameters:
   niter: 
-    values: [5000, 10000, 15000]
+    value: 10000
   niter_decay: 
-    values: [5000, 10000, 15000]
+    value: 10000
   init_type:
     values: ['normal', 'xavier','kaiming']
   lr:
-    distribution: 'uniform'
-    min: 0.00001
-    max: 0.1
+    values: [0.0001, 0.0002, 0.00001]

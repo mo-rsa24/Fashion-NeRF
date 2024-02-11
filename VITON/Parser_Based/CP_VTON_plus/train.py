@@ -264,7 +264,7 @@ def validate_gmm(validation_loader,model, board, step, wandb=wandb):
     total_batches = len(validation_loader.dataset) // opt.viton_batch_size
     processed_batches = 0
     iter_start_time = time.time()
-    val_loss = 0
+    val_warping_loss = 0
     val_Lwarp = 0
     with torch.no_grad():
         while processed_batches < total_batches:
@@ -299,12 +299,12 @@ def validate_gmm(validation_loader,model, board, step, wandb=wandb):
             Lgic = Lgic / (grid.shape[0] * grid.shape[1] * grid.shape[2])
 
             loss = Lwarp + 40 * Lgic    # total GMM loss
-            val_loss += loss.item()
+            val_warping_loss += loss.item()
             val_Lwarp += Lwarp.item()
             processed_batches += 1
-        val_loss = val_loss / len(validation_loader.dataset)  
+        val_warping_loss = val_warping_loss / len(validation_loader.dataset)  
         val_Lwarp = val_Lwarp / len(validation_loader.dataset)  
-        log_losses = {'val_warping_loss':val_loss, 'val_warping_l1':val_Lwarp}
+        log_losses = {'val_warping_loss':val_warping_loss, 'val_warping_l1':val_Lwarp}
         log_images = {
                     'Val/Image': im[0].cpu().detach() / 2 + 0.5,
                     'Val/Pose Image': im_pose[0].cpu().detach() / 2 + 0.5,

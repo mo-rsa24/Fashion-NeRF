@@ -6,11 +6,11 @@ from tensorboardX import SummaryWriter
 import argparse
 import os
 import time
-from networks import ConditionGenerator, VGGLoss, load_checkpoint, save_checkpoint, make_grid, make_grid_3d
-from network_generator import SPADEGenerator, MultiscaleDiscriminator, GANLoss, Projected_GANs_Loss, set_requires_grad
+from VITON.Parser_Based.SD_VITON.networks import ConditionGenerator, VGGLoss, load_checkpoint, save_checkpoint, make_grid, make_grid_3d
+from VITON.Parser_Based.SD_VITON.network_generator import SPADEGenerator, MultiscaleDiscriminator, GANLoss, Projected_GANs_Loss, set_requires_grad
 from dataset import FashionDataLoader, FashionNeRFDataset
-from sync_batchnorm import DataParallelWithCallback
-from utils import create_network
+from VITON.Parser_Based.SD_VITON.sync_batchnorm import DataParallelWithCallback
+from VITON.Parser_Based.SD_VITON.utils import create_network
 import sys
 from VITON.Parser_Based.HR_VITON.utils import generator_process_opt
 from tqdm import tqdm
@@ -18,13 +18,15 @@ from tqdm import tqdm
 import numpy as np
 from torch.utils.data import Subset
 from torchvision.transforms import transforms
-import eval_models as models
+import VITON.Parser_Based.SD_VITON.eval_models as models
 import torchgeometry as tgm
 
-from pg_modules.discriminator import ProjectedDiscriminator
+from VITON.Parser_Based.SD_VITON.pg_modules.discriminator import ProjectedDiscriminator
 import cv2
 fix = lambda path: os.path.normpath(path)
 opt,root_opt,wandb,sweep_id =None, None, None,None
+
+
 def remove_overlap(seg_out, warped_cm):
     
     assert len(warped_cm.shape) == 4
@@ -39,7 +41,7 @@ def get_wandb_image(image, wandb):
     return wandb.Image(image_numpy)     
 
 
-def train(opt, train_loader,validation_loader, test_loader,board,gen, generator, discriminator, model, wandb=None):
+def train(opt, train_loader,validation_loader, test_loader,board,tocg, generator, discriminator, model, wandb=None):
     """
         Train Generator
     """
@@ -47,6 +49,7 @@ def train(opt, train_loader,validation_loader, test_loader,board,gen, generator,
     # Model
     tocg.cuda()
     tocg.eval()
+    generator.cuda()
     generator.train()
     discriminator.train()
     if not opt.composition_mask:
@@ -132,7 +135,7 @@ def train(opt, train_loader,validation_loader, test_loader,board,gen, generator,
             flow_list_taco, fake_segmap, warped_cloth_paired_taco, warped_clothmask_paired_taco, flow_list_tvob, warped_cloth_paired_tvob, warped_clothmask_paired_tvob = tocg(input1, input2)
             
             # warped cloth mask one hot 
-            warped_clothmask_paired_taco_onehot = torch.FloatTensor((warped_clothmask_paired_taco.detach().cpu().numpy() > 0.5).astype(np.float)).cuda()
+            warped_clothmask_paired_taco_onehot = torch.FloatTensor((warped_clothmask_paired_taco.detach().cpu().numpy() > 0.5).astype(float)).cuda()
             
             # fake segmap cloth channel * warped clothmask
             cloth_mask = torch.ones_like(fake_segmap)
@@ -175,9 +178,9 @@ def train(opt, train_loader,validation_loader, test_loader,board,gen, generator,
                 
             old_parse = torch.FloatTensor(fake_parse.size(0), 13, opt.fine_height, opt.fine_width).zero_().cuda()
             old_parse.scatter_(1, fake_parse, 1.0)
-            if opt.clip_warping:
-                warped_cloth_paired_taco = warped_cloth_paired_taco * pcm + torch.ones_like(warped_cloth_paired_taco) * (1 - pcm)
-                warped_cloth_paired_tvob = warped_cloth_paired_tvob * pcm + torch.ones_like(warped_cloth_paired_tvob) * (1 - pcm)
+            # if opt.clip_warping:
+            #     warped_cloth_paired_taco = warped_cloth_paired_taco * pcm + torch.ones_like(warped_cloth_paired_taco) * (1 - pcm)
+            #     warped_cloth_paired_tvob = warped_cloth_paired_tvob * pcm + torch.ones_like(warped_cloth_paired_tvob) * (1 - pcm)
             labels = {
                 0:  ['background',  [0]],
                 1:  ['paste',       [2, 4, 7, 8, 9, 10, 11]],
@@ -793,7 +796,7 @@ def _train_tryon_():
     global opt, root_opt, wandb,sweep_id
     make_dirs(opt)
     board = SummaryWriter(log_dir = opt.tensorboard_dir)
-    torch.cuda.set_device(opt.device)
+    torch.cuda.set_device(1)
     if sweep_id is not None:
         opt.lr = wandb.config.lr
         opt.momentum = wandb.config.momentum

@@ -10,7 +10,7 @@ from glob import glob
 import os.path as osp
 import numpy as np
 import json
-from NeRF.Vanilla_NeRF.load_blender import pose_spherical
+# from NeRF.Vanilla_NeRF.load_blender import pose_spherical
 from utils import get_transforms_data, get_transform_matrix, similarity, labels
 class FashionNeRFDataset(data.Dataset):
     """
@@ -119,7 +119,7 @@ class FashionNeRFDataset(data.Dataset):
         self.im_names = im_names
         if root_opt.dataset_name == 'Rail':
             self.transform_matrices = transform_matrices if self.model == 'NeRF' else None
-            self.render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-60,60,40+1)[:-1]], 0)
+            # self.render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-60,60,40+1)[:-1]], 0)
 
     def name(self):
         return "FashionNeRFData"
@@ -305,7 +305,7 @@ class FashionNeRFDataset(data.Dataset):
         densepose_map = self.transform(densepose_map)  # [-1,1]
     
         densepose_map_wo_normalize = self.transform_wo_normalize(Image.open(os.path.join(self.data_path, densepose_name)))
-        densepose_end_of_torso_mask = torch.FloatTensor((densepose_map_wo_normalize[1:2,:,:].cpu().numpy() == (80/ 255.)).astype(np.int)) # a channel of torso region has 80 value in a painter app.
+        densepose_end_of_torso_mask = torch.FloatTensor((densepose_map_wo_normalize[1:2,:,:].cpu().numpy() == (80/ 255.)).astype(int)) # a channel of torso region has 80 value in a painter app.
         densepose_end_of_torso_mask = transforms.Resize(self.fine_width, interpolation=0)(densepose_end_of_torso_mask)
         return densepose_map, densepose_map_wo_normalize, densepose_end_of_torso_mask
     

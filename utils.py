@@ -5,7 +5,7 @@ import imageio
 import numpy as np
 import random
 import torch
-from NeRF.Vanilla_NeRF.load_blender import pose_spherical
+# from NeRF.Vanilla_NeRF.load_blender import pose_spherical
 import cv2
 # --cuda False --name Rail_No_Occlusion -b 4 -j 2 --tocg_checkpoint checkpoints/Rail_RT_No_Occlusion_1/tocg_step_280000.pth
 import argparse
@@ -372,6 +372,8 @@ def parse_arguments():
     parser.add_argument('--spectral', action='store_true', help="Apply spectral normalization to D")
     parser.add_argument('--occlusion', action='store_true', help="Occlusion handling")
     parser.add_argument('--cond_G_ngf', type=int, default=96)
+    parser.add_argument("--cond_G_input_width", type=int, default=192)
+    parser.add_argument("--cond_G_input_height", type=int, default=256)
     parser.add_argument('--cond_G_num_layers', type=int, default=5)
     parser.add_argument("--test_datasetting", default="unpaired")
     parser.add_argument("--test_dataroot", default="./data/")
@@ -598,19 +600,19 @@ def get_transform_matrix(transform_data, image_name):
             break
     return transform_matrix
 
-def load_nerf_data(dataset):
-    imgs = []
-    poses = []
-    for data in dataset:
-        imgs.append(imageio.imread(data['im_name']))
-        poses.append(np.array(data['transform_matrix']))
-    imgs = (np.array(imgs) / 255.).astype(np.float32)  # keep all 4 channels (RGBA)
-    poses = np.array(poses).astype(np.float32)
-    H, W = imgs[0].shape[:2]
-    camera_angle_x = float(dataset['camera_angle_x'])
-    focal = .5 * W / np.tan(.5 * camera_angle_x)
-    render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40 + 1)[:-1]], 0)
-    return imgs, poses, render_poses, [H, W, focal], None
+# def load_nerf_data(dataset):
+#     imgs = []
+#     poses = []
+#     for data in dataset:
+#         imgs.append(imageio.imread(data['im_name']))
+#         poses.append(np.array(data['transform_matrix']))
+#     imgs = (np.array(imgs) / 255.).astype(np.float32)  # keep all 4 channels (RGBA)
+#     poses = np.array(poses).astype(np.float32)
+#     H, W = imgs[0].shape[:2]
+#     camera_angle_x = float(dataset['camera_angle_x'])
+#     focal = .5 * W / np.tan(.5 * camera_angle_x)
+#     render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40 + 1)[:-1]], 0)
+#     return imgs, poses, render_poses, [H, W, focal], None
 
 similarity = lambda n1, n2: 1 - abs(n1 - n2) / (n1 + n2)
 labels = {

@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from pg_modules.blocks import DownBlock, DownBlockPatch, conv2d, GLU
-from pg_modules.projector import F_RandomProj
-from pg_modules.diffaug import DiffAugment
+from VITON.Parser_Based.SD_VITON.pg_modules.blocks import DownBlock, DownBlockPatch, conv2d, GLU
+from VITON.Parser_Based.SD_VITON.pg_modules.projector import F_RandomProj
+from VITON.Parser_Based.SD_VITON.pg_modules.diffaug import DiffAugment
 
 from torch.nn.utils import spectral_norm
 

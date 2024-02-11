@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import timm
-from pg_modules.blocks import FeatureFusionBlock
+from VITON.Parser_Based.SD_VITON.pg_modules.blocks import FeatureFusionBlock
 
 
 def _make_scratch_ccm(scratch, in_channels, cout, expand=False):

@@ -145,6 +145,8 @@ tvlambda_tvob: 2
 tvlambda_taco: 2
 cond_G_ngf: 96
 cond_G_num_layers: 5
+cond_G_input_width: 192
+cond_G_input_height: 256
 norm_G: spectralaliasinstance # [spectralaliasinstance]
 norm_D: spectralinstance # [spectralinstance]
 init_type: xavier # [xavier]

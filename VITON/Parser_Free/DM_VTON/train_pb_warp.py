@@ -33,126 +33,134 @@ def get_wandb_image(image, wandb):
     return wandb.Image(image_numpy)   
 
 def train_batch(
-    opt, root_opt, data, models, optimizers, criterions, device, writer, global_step, wandb=None,epoch=0
+    opt, root_opt, train_loader, models, optimizers, criterions, device, writer, global_step, wandb=None,epoch=0
 ):
+    
+    
     batch_start_time = time.time()
 
     warp_model = models['warp']
+    warp_model.train()
     warp_optimizer = optimizers['warp']
     criterionL1, criterionVGG = criterions['L1'], criterions['VGG']
-
-    if root_opt.dataset_name == 'Rail':
-        t_mask = torch.FloatTensor(((data['label'] == 3) | (data['label'] == 11)).cpu().numpy().astype(np.int64))
-    else:
-        t_mask = torch.FloatTensor((data['label'].cpu().numpy() == 7).astype(np.float64))
-    data['label'] = data['label'] * (1 - t_mask) + t_mask * 4
-    edge = data['edge']
-    pre_clothes_edge = torch.FloatTensor((edge.detach().numpy() > 0.5).astype(np.int64))
-    clothes = data['color']
-    clothes = clothes * pre_clothes_edge
-    if root_opt.dataset_name == 'Rail':
-        person_clothes_edge = torch.FloatTensor(((data['label'] == 5) | (data['label'] == 6) | (data['label'] == 7)).cpu().numpy().astype(np.int64))
-    else:
-        person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
-    real_image = data['image']
-    person_clothes = real_image * person_clothes_edge
-    pose = data['pose']
-    pose_map = data['pose_map']
-    size = data['label'].size()
-    oneHot_size1 = (size[0], 25, size[2], size[3])
-    densepose = torch.cuda.FloatTensor(torch.Size(oneHot_size1), device=device).zero_()
-    densepose = densepose.scatter_(1, data['densepose'].data.long().to(device), 1.0)
-    densepose_fore = data['densepose'] / 24.0
-    
-    if root_opt.dataset_name == 'Rail':
-        face_mask = torch.FloatTensor(
-        (data['label'].cpu().numpy() == 1).astype(np.int64)
-         ) + torch.FloatTensor(((data['label'] == 4) | (data['label'] == 13)).cpu().numpy().astype(np.int64))
-    else:
-        face_mask = torch.FloatTensor(
-        (data['label'].cpu().numpy() == 1).astype(np.int64)
-        ) + torch.FloatTensor((data['label'].cpu().numpy() == 12).astype(np.int64))
-    
-    
-    
-    if root_opt.dataset_name == 'Rail':    
-        other_clothes_mask = (
-            torch.FloatTensor((data['label'].cpu().numpy() == 18).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 19).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 16).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 17).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 9).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 12).astype(np.int64))
-        )
-    else:
-        other_clothes_mask = (
-            torch.FloatTensor((data['label'].cpu().numpy() == 5).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 6).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 8).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 9).astype(np.int64))
-            + torch.FloatTensor((data['label'].cpu().numpy() == 10).astype(np.int64))
-        )
-    preserve_mask = torch.cat([face_mask, other_clothes_mask], 1)
-    concat = torch.cat([preserve_mask.to(device), densepose, pose.to(device)], 1)
-
-    with cupy.cuda.Device(int(device.split(':')[-1])):
-        flow_out = warp_model(concat.to(device), clothes.to(device), pre_clothes_edge.to(device))
-    (
-        warped_cloth,
-        last_flow,
-        cond_fea_all,
-        warp_fea_all,
-        flow_all,
-        delta_list,
-        x_all,
-        x_edge_all,
-        delta_x_all,
-        delta_y_all,
-    ) = flow_out
-    warped_prod_edge = x_edge_all[4]
-
-    if root_opt.dataset_name == 'Rail' and epoch >0 :
-        binary_mask = (warped_prod_edge > 0.5).float()
-        warped_cloth = warped_cloth * binary_mask
+    train_warping_loss = 0
+    train_warping_l1 = 0
+    train_warping_vgg = 0
+    for idx, data in enumerate(train_loader):
+        if root_opt.dataset_name == 'Rail':
+            t_mask = torch.FloatTensor(((data['label'] == 3) | (data['label'] == 11)).cpu().numpy().astype(np.int64))
+        else:
+            t_mask = torch.FloatTensor((data['label'].cpu().numpy() == 7).astype(np.float64))
+        data['label'] = data['label'] * (1 - t_mask) + t_mask * 4
+        edge = data['edge']
+        pre_clothes_edge = torch.FloatTensor((edge.detach().numpy() > 0.5).astype(np.int64))
+        clothes = data['color']
+        clothes = clothes * pre_clothes_edge
+        if root_opt.dataset_name == 'Rail':
+            person_clothes_edge = torch.FloatTensor(((data['label'] == 5) | (data['label'] == 6) | (data['label'] == 7)).cpu().numpy().astype(np.int64))
+        else:
+            person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
+        real_image = data['image']
+        person_clothes = real_image * person_clothes_edge
+        pose = data['pose']
+        pose_map = data['pose_map']
+        size = data['label'].size()
+        oneHot_size1 = (size[0], 25, size[2], size[3])
+        densepose = torch.cuda.FloatTensor(torch.Size(oneHot_size1), device=device).zero_()
+        densepose = densepose.scatter_(1, data['densepose'].data.long().to(device), 1.0)
+        densepose_fore = data['densepose'] / 24.0
+        
+        if root_opt.dataset_name == 'Rail':
+            face_mask = torch.FloatTensor(
+            (data['label'].cpu().numpy() == 1).astype(np.int64)
+            ) + torch.FloatTensor(((data['label'] == 4) | (data['label'] == 13)).cpu().numpy().astype(np.int64))
+        else:
+            face_mask = torch.FloatTensor(
+            (data['label'].cpu().numpy() == 1).astype(np.int64)
+            ) + torch.FloatTensor((data['label'].cpu().numpy() == 12).astype(np.int64))
         
         
-    epsilon = opt.epsilon
-    loss_smooth = sum([TVLoss(x) for x in delta_list])
-    # if (global_step % 300 == 0):
-    #     print_log(log_path, f'smooth: {str(loss_smooth)}')
-    loss_all = 0
+        
+        if root_opt.dataset_name == 'Rail':    
+            other_clothes_mask = (
+                torch.FloatTensor((data['label'].cpu().numpy() == 18).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 19).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 16).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 17).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 9).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 12).astype(np.int64))
+            )
+        else:
+            other_clothes_mask = (
+                torch.FloatTensor((data['label'].cpu().numpy() == 5).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 6).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 8).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 9).astype(np.int64))
+                + torch.FloatTensor((data['label'].cpu().numpy() == 10).astype(np.int64))
+            )
+        preserve_mask = torch.cat([face_mask, other_clothes_mask], 1)
+        concat = torch.cat([preserve_mask.to(device), densepose, pose.to(device)], 1)
 
-    for num in range(5):
-        cur_person_clothes = F.interpolate(
-            person_clothes, scale_factor=0.5 ** (4 - num), mode='bilinear'
-        )
-        cur_person_clothes_edge = F.interpolate(
-            person_clothes_edge, scale_factor=0.5 ** (4 - num), mode='bilinear'
-        )
-        loss_l1 = criterionL1(x_all[num], cur_person_clothes.to(device))
-        loss_vgg = criterionVGG(x_all[num], cur_person_clothes.to(device))
-        loss_edge = criterionL1(x_edge_all[num], cur_person_clothes_edge.to(device))
-        b, c, h, w = delta_x_all[num].shape
-        loss_flow_x = (delta_x_all[num].pow(2) + epsilon * epsilon).pow(0.45)
-        loss_flow_x = torch.sum(loss_flow_x) / (b * c * h * w)
-        loss_flow_y = (delta_y_all[num].pow(2) + epsilon * epsilon).pow(0.45)
-        loss_flow_y = torch.sum(loss_flow_y) / (b * c * h * w)
-        loss_second_smooth = loss_flow_x + loss_flow_y
-        loss_all = (
-            loss_all
-            + (num + 1) * loss_l1 # warp
-            + (num + 1) * opt.lambda_loss_vgg * loss_vgg # warp_per
-            + (num + 1) * opt.lambda_loss_edge * loss_edge
-            + (num + 1) * opt.lambda_loss_second_smooth * loss_second_smooth # lambda_loss_second_smooth
-        )
+        with cupy.cuda.Device(int(device.split(':')[-1])):
+            flow_out = warp_model(concat.to(device), clothes.to(device), pre_clothes_edge.to(device))
+        (
+            warped_cloth,
+            last_flow,
+            cond_fea_all,
+            warp_fea_all,
+            flow_all,
+            delta_list,
+            x_all,
+            x_edge_all,
+            delta_x_all,
+            delta_y_all,
+        ) = flow_out
+        warped_prod_edge = x_edge_all[4]
 
-    loss_all = opt.lambda_loss_smooth * loss_smooth + loss_all
+        if root_opt.dataset_name == 'Rail' and epoch >0 :
+            binary_mask = (warped_prod_edge > 0.5).float()
+            warped_cloth = warped_cloth * binary_mask
+            
+            
+        epsilon = opt.epsilon
+        loss_smooth = sum([TVLoss(x) for x in delta_list])
+        # if (global_step % 300 == 0):
+        #     print_log(log_path, f'smooth: {str(loss_smooth)}')
+        loss_all = 0
 
-    warp_optimizer.zero_grad()
-    loss_all.backward()
-    warp_optimizer.step()
+        for num in range(5):
+            cur_person_clothes = F.interpolate(
+                person_clothes, scale_factor=0.5 ** (4 - num), mode='bilinear'
+            )
+            cur_person_clothes_edge = F.interpolate(
+                person_clothes_edge, scale_factor=0.5 ** (4 - num), mode='bilinear'
+            )
+            loss_l1 = criterionL1(x_all[num], cur_person_clothes.to(device))
+            loss_vgg = criterionVGG(x_all[num], cur_person_clothes.to(device))
+            loss_edge = criterionL1(x_edge_all[num], cur_person_clothes_edge.to(device))
+            b, c, h, w = delta_x_all[num].shape
+            loss_flow_x = (delta_x_all[num].pow(2) + epsilon * epsilon).pow(0.45)
+            loss_flow_x = torch.sum(loss_flow_x) / (b * c * h * w)
+            loss_flow_y = (delta_y_all[num].pow(2) + epsilon * epsilon).pow(0.45)
+            loss_flow_y = torch.sum(loss_flow_y) / (b * c * h * w)
+            loss_second_smooth = loss_flow_x + loss_flow_y
+            loss_all = (
+                loss_all
+                + (num + 1) * loss_l1 # warp
+                + (num + 1) * opt.lambda_loss_vgg * loss_vgg # warp_per
+                + (num + 1) * opt.lambda_loss_edge * loss_edge
+                + (num + 1) * opt.lambda_loss_second_smooth * loss_second_smooth # lambda_loss_second_smooth
+            )
 
-    train_batch_time = time.time() - batch_start_time
+        loss_all = opt.lambda_loss_smooth * loss_smooth + loss_all
+
+        warp_optimizer.zero_grad()
+        loss_all.backward()
+        warp_optimizer.step()
+        
+        train_warping_loss += loss_all.item()
+        train_warping_l1 += loss_l1.item()
+        train_warping_vgg += loss_vgg.item()
 
     # Visualize
     if (epoch + 1) % opt.display_count == 0:
@@ -167,9 +175,8 @@ def train_batch(
         f = torch.cat([warped_prod_edge, warped_prod_edge, warped_prod_edge], 1)
         combine = torch.cat([a[0], b[0], c[0], d[0], e[0], f[0]], 2).squeeze()
         cv_img = (combine.permute(1, 2, 0).detach().cpu().numpy() + 1) / 2
-        writer.add_image('combine', (combine.data + 1) / 2.0, global_step)
         rgb = (cv_img * 255).astype(np.uint8)
-        log_losses = {'warping_loss': loss_all.item() ,'warping_l1': loss_l1.item(),'warping_vgg': loss_vgg.item()}
+        log_losses = {'warping_loss': train_warping_loss / len(train_loader.dataset) ,'warping_l1':train_warping_l1 / len(train_loader.dataset),'warping_vgg': train_warping_vgg / len(train_loader.dataset)}
         log_images = {'Image': (a[0].cpu() / 2 + 0.5), 
         'Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
         'Clothing': (c[0].cpu() / 2 + 0.5), 
@@ -180,8 +187,6 @@ def train_batch(
         log_results(log_images, log_losses, writer,wandb, epoch, iter_start_time=batch_start_time, train=True)
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"), bgr)
-
-    return loss_all.item(), train_batch_time
 
 def log_results(log_images, log_losses, board,wandb, step, iter_start_time=None, train=True):
     table = 'Table' if train else 'Val_Table'
@@ -347,9 +352,7 @@ def validate_batch(
     'Val/Warped Cloth Mask': f[0].cpu().detach().expand(3, -1, -1)}
     log_results(log_images, log_losses, writer,wandb, epoch, train=False)
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(os.path.join(opt.results_dir,'val',f"{global_step}.jpg"), bgr)
-
-    return loss_all.item()
+    cv2.imwrite(os.path.join(opt.results_dir,'val',f"{epoch}.jpg"), bgr)
 
 def save_checkpoint(model, save_path,opt):
     if not os.path.exists(os.path.dirname(save_path)):
@@ -592,22 +595,14 @@ def _train_pb_warp_():
     # Start training
     nb = len(train_loader)  # number of batches
     total_steps = epoch_num * nb
-    total_valid_steps = epoch_num * nb
-    eta_meter = AverageMeter()
     global_step = 1
     t0 = time.time()
-    train_loss = 0
-    val_loss = 0
-    steps_loss = 0
-
     for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         
         epoch_start_time = time.time()
 
-        for idx, data in enumerate(train_loader):  # batch -----------------------------------------
-            warp_model.train()
-            loss_all, train_batch_time = train_batch(
-                opt, root_opt, data,
+        train_batch(
+                opt, root_opt, train_loader,
                 models={'warp': warp_model},
                 optimizers={'warp': warp_optimizer},
                 criterions={'L1': criterionL1, 'VGG': criterionVGG},
@@ -617,33 +612,9 @@ def _train_pb_warp_():
                 wandb=wandb,
                 epoch=epoch
             )
-            train_loss += loss_all
-            steps_loss += loss_all
-
-            # Logging
-            eta_meter.update(train_batch_time)
-            now = datetime.datetime.now().strftime('%Y.%m.%d-%H:%M:%S')
-            if global_step % opt.print_step == 0:
-                eta_sec = ((epoch_num + 1 - epoch) * len(train_loader) - idx - 1) * eta_meter.avg
-                eta_sec_format = str(datetime.timedelta(seconds=int(eta_sec)))
-                strs = '[{}]: [epoch-{}/{}]--[global_step-{}/{}-{:.2%}]--[loss: warp-{:.6f}]--[lr-{}]--[eta-{}]'.format(  # noqa: E501
-                    now,
-                    epoch,
-                    epoch_num,
-                    global_step,
-                    total_steps,
-                    global_step / total_steps,
-                    steps_loss / opt.print_step,
-                    ['%.6f' % group['lr'] for group in warp_optimizer.param_groups],
-                    eta_sec_format,
-                )  # noqa: E501
-                print_log(log_path, strs)
-
-                steps_loss = 0
-            # break
-            if epoch % opt.val_count == 0:
-                with torch.no_grad():
-                    val_loss_all = validate_batch(
+        if epoch % opt.val_count == 0:
+            with torch.no_grad():
+                validate_batch(
                         opt, root_opt, validation_loader,
                         models={'warp': warp_model},
                         criterions={'L1': criterionL1, 'VGG': criterionVGG},
@@ -653,23 +624,9 @@ def _train_pb_warp_():
                         wandb=wandb,
                         epoch=epoch
                     )
-                val_loss += val_loss_all
-
-            global_step += 1
-            # end batch ---------------------------------------------------------------------------
-        
+        global_step += 1
         # Scheduler
         warp_scheduler.step()
-
-        # Visualize train loss
-        train_loss /= len(train_loader.dataset)
-        val_loss  /= len(validation_loader.dataset)
-        
-        writer.add_scalar('total_avg_warping_loss', train_loss, epoch)
-        writer.add_scalar('val_total_avg_warping_loss', val_loss, epoch)
-        if wandb is not None:
-            wandb.log({'total_avg_warping_loss': train_loss,'val_total_avg_warping_loss': val_loss})
-
         # Save model
         warp_ckpt = {
             'epoch': epoch,
@@ -679,19 +636,7 @@ def _train_pb_warp_():
         
         if epoch % opt.save_period == 0:
             torch.save(warp_ckpt, opt.pb_warp_save_step_checkpoint % epoch)
-            print_log(
-                log_path, 'Saving the model at the end of epoch %d, iters %d' % (epoch, total_steps)
-            )
-        # del warp_ckpt
-
-        print_log(
-            log_path,
-            'End of epoch %d / %d: train_loss: %.3f \t time: %d sec'
-            % (epoch, opt.niter + opt.niter_decay, train_loss, time.time() - epoch_start_time),
-        )
-
-        train_loss = 0
-        val_loss = 0
+            print_log(log_path, 'Saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))
         # end epoch -------------------------------------------------------------------------------
     # end training --------------------------------------------------------------------------------
     torch.save(warp_ckpt, opt.pb_warp_save_final_checkpoint)

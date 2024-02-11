@@ -4,18 +4,16 @@ program: train.py
 method: bayes
 metric:
   goal: minimize
-  name: val_warping_loss
+  name: val_composition_loss
 parameters:
   niter: 
-    values: [5000, 10000, 15000]
+    value: 10000
   niter_decay: 
-    values: [5000, 10000, 15000]
+    value: 10000
   init_type:
     values: ['normal', 'xavier','kaiming']
   Lgic:
     min: 40
     max: 60
   lr:
-    distribution: 'uniform'
-    min: 0.00001
-    max: 0.1
+    values: [0.0001, 0.0002, 0.00001]

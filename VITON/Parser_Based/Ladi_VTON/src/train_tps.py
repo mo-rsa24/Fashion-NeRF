@@ -3,13 +3,9 @@ import os
 import random
 from pathlib import Path
 from tensorboardX import SummaryWriter
-# import debugpy
-# debugpy.listen(5678)
-# print("Ready")
-# debugpy.wait_for_client()
-# debugpy.breakpoint()
 import numpy as np
 import yaml
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,9 +21,9 @@ from VITON.Parser_Based.Ladi_VTON.src.dataset.vitonhd import VitonHDDataset
 from VITON.Parser_Based.Ladi_VTON.src.models.ConvNet_TPS import ConvNet_TPS
 from VITON.Parser_Based.Ladi_VTON.src.models.UNet import UNetVanilla
 from VITON.Parser_Based.Ladi_VTON.src.utils.vgg_loss import VGGLoss
-
+from VITON.Parser_Based.Ladi_VTON.src.utils.env import tps_process_opt
 fix = lambda path: os.path.normpath(path)
-
+opt,root_opt,wandb,sweep_id =None, None, None,None
    
 def get_wandb_image(image, wandb):
     if image.max() <= 1.0:
@@ -119,7 +115,7 @@ def compute_metric(dataloader: DataLoader, tps: ConvNet_TPS, criterion_l1: nn.L1
 
 
 def training_loop_tps(dataloader: DataLoader, tps: ConvNet_TPS, optimizer_tps: torch.optim.Optimizer,
-                      criterion_l1: nn.L1Loss, scaler: torch.cuda.amp.GradScaler, const_weight: float) -> tuple[
+                      criterion_l1: nn.L1Loss, scaler: torch.cuda.amp.GradScaler, const_weight: float, epoch: int) -> tuple[
     float, float, float, list[list]]:
     """
     Training loop for the TPS network. Note that the TPS is trained on a low resolution image for sake of performance.
@@ -162,13 +158,21 @@ def training_loop_tps(dataloader: DataLoader, tps: ConvNet_TPS, optimizer_tps: t
         running_loss += loss.item()
         running_l1_loss += l1_loss.item()
         running_const_loss += const_loss.item()
-        break
 
     visual = [[low_image, low_cloth, low_im_cloth, low_warped_cloth.clamp(-1, 1)]]
-    loss = running_loss / (step + 1)
-    l1_loss = running_l1_loss / (step + 1)
-    const_loss = running_const_loss / (step + 1)
-    return loss, l1_loss, const_loss, visual
+    log_images = {'Image': (low_image[0].cpu() / 2 + 0.5), 
+            'Pose Image': (low_pose_map[0].cpu() / 2 + 0.5), 
+            'Clothing': (low_cloth[0].cpu() / 2 + 0.5), 
+            'Parse Clothing': (low_im_cloth[0].cpu() / 2 + 0.5), 
+            'Parse Clothing Mask': low_im_mask[0].cpu().expand(3, -1, -1), 
+            'Warped Cloth': (low_warped_cloth[0].cpu().detach() / 2 + 0.5), 
+            'Warped Cloth Mask': low_im_mask[0].cpu().detach().expand(3, -1, -1)}
+    loss = running_loss  / len(dataloader.dataset)
+    l1_loss = running_l1_loss / len(dataloader.dataset)
+    const_loss = running_const_loss / len(dataloader.dataset)
+    log_losses = {'warping_loss': running_loss ,'warping_l1': running_l1_loss,
+                  'const_loss':const_loss}
+    return loss, l1_loss, const_loss, visual,log_images, log_losses
 
 
 def training_loop_refinement(dataloader: DataLoader, tps: ConvNet_TPS, refinement: UNetVanilla,
@@ -229,7 +233,6 @@ def training_loop_refinement(dataloader: DataLoader, tps: ConvNet_TPS, refinemen
             vgg_loss = criterion_vgg(warped_cloth, im_cloth)
 
             loss = l1_loss * l1_weight + vgg_loss * vgg_weight
-        break
         # Update the parameters
         optimizer_ref.zero_grad()
         scaler.scale(loss).backward()
@@ -241,10 +244,22 @@ def training_loop_refinement(dataloader: DataLoader, tps: ConvNet_TPS, refinemen
         running_vgg_loss += vgg_loss.item()
 
     visual = [[image, cloth, im_cloth, low_warped_cloth.clamp(-1, 1)]]
-    loss = running_loss / (step + 1)
-    l1_loss = running_l1_loss / (step + 1)
-    vgg_loss = running_vgg_loss / (step + 1)
-    return loss, l1_loss, vgg_loss, visual
+    loss = running_loss / len(dataloader.dataset)
+    l1_loss = running_l1_loss / len(dataloader.dataset)
+    vgg_loss = running_vgg_loss / len(dataloader.dataset)
+    
+    log_images = {'Image': (image[0].cpu() / 2 + 0.5), 
+            'Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
+            'Clothing': (cloth[0].cpu() / 2 + 0.5), 
+            'Parse Clothing': (im_cloth[0].cpu() / 2 + 0.5), 
+            'Parse Clothing Mask': im_mask[0].cpu().expand(3, -1, -1), 
+            'Warped Cloth': (warped_cloth[0].cpu().detach() / 2 + 0.5), 
+            'Warped Cloth Mask': im_mask[0].cpu().detach().expand(3, -1, -1)}
+    log_losses = {'warping_loss': loss ,'warping_l1': l1_loss,
+                  'const_loss':vgg_loss}
+    
+    
+    return loss, l1_loss, vgg_loss, visual, log_images, log_losses
 
 
 @torch.no_grad()
@@ -306,130 +321,88 @@ def extract_images(dataloader: DataLoader, tps: ConvNet_TPS, refinement: UNetVan
             save_image(warpclo, os.path.join(save_path, cat, iname.replace(".jpg", "") + "_" + cname),
                        quality=95)
         break
-def get_root_experiment_runs(root_opt):
-    root_opt.experiment_run = root_opt.experiment_run.format(root_opt.experiment_number, root_opt.run_number)
-    root_opt.experiment_from_run = root_opt.experiment_from_run.format(root_opt.experiment_from_number, root_opt.run_from_number)
-    root_opt.tps_experiment_from_run = root_opt.tps_experiment_from_run.format(root_opt.tps_experiment_from_number, root_opt.tps_run_from_number)
-    return root_opt
-
-def get_root_opt_experiment_dir(root_opt):
-    root_opt.rail_dir = root_opt.rail_dir.format(root_opt.dataset_name, root_opt.res, root_opt.datamode)    
-    root_opt.original_dir = root_opt.original_dir.format(root_opt.dataset_name, root_opt.res, root_opt.datamode)
-    if root_opt.res == 'low_res':
-        root_opt.original_dir = root_opt.original_dir.replace(root_opt.res, os.path.join(root_opt.res, root_opt.low_res_dataset_name))
-    # Current model
-    root_opt.this_viton_save_to_dir = os.path.join(root_opt.this_viton_save_to_dir, root_opt.VITON_Model)
-    root_opt.this_viton_load_from_dir = root_opt.this_viton_load_from_dir.format(root_opt.VITON_Type, root_opt.VITON_Name, root_opt.this_viton_load_from_dir)
-    root_opt.this_viton_load_from_dir = os.path.join(root_opt.this_viton_load_from_dir, root_opt.VITON_Model)
-    
-    # TOCG
-    root_opt.tps_experiment_from_dir = root_opt.tps_experiment_from_dir.format(root_opt.VITON_Type, root_opt.VITON_Name, root_opt.tps_load_from_model)
-    root_opt.tps_experiment_from_dir = os.path.join(root_opt.tps_experiment_from_dir, root_opt.VITON_Model)
-    
-    return root_opt
 
 
-def get_root_opt_results_dir(parser, root_opt):
-    root_opt.transforms_dir = root_opt.transforms_dir.format(root_opt.dataset_name)
-    parser.tensorboard_dir = parser.tensorboard_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
-    parser.results_dir = parser.results_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
-    return parser, root_opt
-
-def copy_root_opt_to_opt(parser, root_opt):
-    parser.display_count = root_opt.display_count
-    parser.cuda = root_opt.cuda
-    parser.device = int(root_opt.device)
-    parser.dataset_name = root_opt.dataset_name
-    parser.warp_load_from_model = root_opt.warp_load_from_model
-    parser.load_last_step = root_opt.load_last_step if type(root_opt.load_last_step) == bool else eval(root_opt.load_last_step)
-    parser.run_wandb = root_opt.run_wandb
-    parser.viton_batch_size = root_opt.viton_batch_size
-    parser.save_period = root_opt.save_period
-    parser.print_step = root_opt.print_step
-    parser.niter = root_opt.niter
-    parser.niter_decay = root_opt.niter_decay
-    parser.VITON_Type = root_opt.VITON_Type
-    parser.VITON_selection_dir = parser.VITON_selection_dir.format(parser.VITON_Type, parser.VITON_Name)
-    return parser
-
-def get_root_opt_checkpoint_dir(opt, root_opt):
-    last_step = root_opt.load_last_step if type(root_opt.load_last_step) == bool else eval(root_opt.load_last_step)
-    sort_digit = lambda name: int(name.split('_')[-1].split('.')[0])
-    # ================================= TOCG =================================
-    opt.tps_save_step_checkpoint_dir = opt.tps_save_step_checkpoint_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
-    opt.tps_save_step_checkpoint_dir = fix(opt.tps_save_step_checkpoint_dir)
-    opt.tps_save_step_checkpoint = os.path.join(opt.tps_save_step_checkpoint_dir, opt.tps_save_step_checkpoint)
-    
-    opt.tps_save_final_checkpoint_dir = opt.tps_save_final_checkpoint_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
-    opt.tps_save_final_checkpoint_dir = fix(opt.tps_save_final_checkpoint_dir)
-    opt.tps_save_final_checkpoint = os.path.join(opt.tps_save_final_checkpoint_dir, opt.tps_save_final_checkpoint)
-    
-    opt.tps_load_final_checkpoint_dir = opt.tps_load_final_checkpoint_dir.format(root_opt.vgg_experiment_from_run, root_opt.tps_experiment_from_dir)
-    opt.tps_load_final_checkpoint_dir = fix(opt.tps_load_final_checkpoint_dir)
-    opt.tps_load_final_checkpoint = os.path.join(opt.tps_load_final_checkpoint_dir, opt.tps_load_final_checkpoint)
-
-    if not last_step:
-        opt.tps_load_step_checkpoint_dir = opt.tps_load_step_checkpoint_dir.format(root_opt.tps_experiment_from_run, root_opt.tps_experiment_from_dir)
+def _train_ladi_vton_tps__sweep():
+    if wandb is not None:
+        with wandb.init(project="Fashion-NeRF-Sweep", entity='rail_lab', tags=[f"{root_opt.experiment_run}"], config=vars(opt)):
+            _train_ladi_vton_tps_()
+            
+def train_ladi_vton_tps_(opt_, root_opt_, run_wandb=False, sweep=None):
+    global opt, root_opt, wandb,sweep_id
+    opt,root_opt = tps_process_opt(opt_, root_opt_)
+    sweep_id = None
+    if sweep is not None:
+        import wandb 
+        wandb.login()
+        sweep_id = wandb.sweep(sweep=sweep, project="Fashion-NeRF-Sweep")
+        wandb.agent(sweep_id,_train_ladi_vton_tps__sweep,count=3)
+    elif run_wandb:
+        import wandb
+        wandb.login()
+        wandb.init(project="Fashion-NeRF", entity='rail_lab', tags=[f"{root_opt.experiment_run}"], config=vars(opt))
+        temp_opt = vars(opt)
+        temp_opt['wandb_name'] = wandb.run.name
+        opt = argparse.Namespace(**temp_opt)
+        _train_ladi_vton_tps_()
     else:
-        opt.tps_load_step_checkpoint_dir = opt.tps_load_step_checkpoint_dir.format(root_opt.tps_experiment_from_run, root_opt.this_viton_save_to_dir)
-    opt.tps_load_step_checkpoint_dir = fix(opt.tps_load_step_checkpoint_dir)
-    if not last_step:
-        opt.tps_load_step_checkpoint = os.path.join(opt.tps_load_step_checkpoint_dir, opt.tps_load_step_checkpoint)
-    else:
-        if os.path.isdir(opt.tps_load_step_checkpoint_dir.format(root_opt.tps_experiment_from_run, root_opt.this_viton_save_to_dir)):
-            os_list = os.listdir(opt.tps_load_step_checkpoint_dir.format(root_opt.tps_experiment_from_run, root_opt.this_viton_save_to_dir))
-            os_list = [string for string in os_list if "tps" in string]
-            last_step = sorted(os_list, key=sort_digit)[-1]
-            opt.tps_load_step_checkpoint = os.path.join(opt.tps_load_step_checkpoint_dir, last_step)
-        
-    return opt
-
-def get_root_opt_results_dir(parser, root_opt):
-    root_opt.transforms_dir = root_opt.transforms_dir.format(root_opt.dataset_name)
-    parser.tensorboard_dir = parser.tensorboard_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
-    parser.results_dir = parser.results_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
-    return parser, root_opt
-
-def copy_root_opt_to_opt(parser, root_opt):
-    parser.display_count = root_opt.display_count
-    parser.cuda = root_opt.cuda
-    parser.device = int(root_opt.device)
-    parser.dataset_name = root_opt.dataset_name
-    parser.warp_load_from_model = root_opt.warp_load_from_model
-    parser.load_last_step = root_opt.load_last_step if type(root_opt.load_last_step) == bool else eval(root_opt.load_last_step)
-    parser.run_wandb = root_opt.run_wandb
-    parser.viton_batch_size = root_opt.viton_batch_size
-    parser.save_period = root_opt.save_period
-    parser.print_step = root_opt.print_step
-    parser.niter = root_opt.niter
-    parser.niter_decay = root_opt.niter_decay
-    parser.VITON_Type = root_opt.VITON_Type
-    parser.VITON_selection_dir = parser.VITON_selection_dir.format(parser.VITON_Type, parser.VITON_Name)
-    return parser
-
-def process_opt(opt, root_opt):
-    parser = opt
-    parser = argparse.Namespace(**parser)
-    root_opt = get_root_experiment_runs(root_opt)
-    root_opt = get_root_opt_experiment_dir(root_opt)
-    parser = get_root_opt_checkpoint_dir(parser, root_opt)
-    parser, root_opt = get_root_opt_results_dir(parser, root_opt)    
-    parser = copy_root_opt_to_opt(parser, root_opt)
-    return parser, root_opt
-
-def _train_ladi_vton_tps_(opt, root_opt,  wandb=None):
-
+        wandb = None
+        _train_ladi_vton_tps_()
+             
+def make_dirs(opt):
     if not os.path.exists(opt.tensorboard_dir):
         os.makedirs(opt.tensorboard_dir)
-    board = SummaryWriter(log_dir = os.path.join(opt.tensorboard_dir, opt.VITON_Model))
-    with open(os.path.join(root_opt.experiment_run_yaml, f"{root_opt.experiment_run.replace('/','_')}_{root_opt.opt_vton_yaml}"), 'w') as outfile:
+    if not os.path.exists(opt.tocg_save_final_checkpoint_dir):
+        os.makedirs(opt.tocg_save_final_checkpoint_dir)
+    if not os.path.exists(opt.tocg_discriminator_save_final_checkpoint_dir):
+        os.makedirs(opt.tocg_discriminator_save_final_checkpoint_dir)
+    if not os.path.exists(os.path.join(opt.results_dir,'val')):
+        os.makedirs(os.path.join(opt.results_dir,'val'))
+    if not os.path.exists(opt.results_dir):
+        os.makedirs(opt.results_dir)
+    if not os.path.exists(opt.tocg_save_step_checkpoint_dir):
+        os.makedirs(opt.tocg_save_step_checkpoint_dir)
+    if not os.path.exists(opt.tocg_discriminator_save_step_checkpoint_dir):
+        os.makedirs(opt.tocg_discriminator_save_step_checkpoint_dir)
+
+def log_results(log_images, log_losses, board,wandb, step, iter_start_time=None, train=True):
+    table = 'Table' if train else 'Val_Table'
+    wandb_images = []
+    for key,value in log_losses.items():
+        board.add_scalar(key, value, step+1)
+        
+    for key,value in log_images.items():
+        board.add_image(key, value, step+1)
+        if wandb is not None:
+            wandb_images.append(get_wandb_image(value, wandb=wandb))
+
+    if wandb is not None:
+        my_table = wandb.Table(columns=['Image', 'Pose Image','Clothing','Parse Clothing','Parse Clothing Mask','Warped Cloth','Warped Cloth Mask'])
+        my_table.add_data(*wandb_images)
+        wandb.log({table: my_table, **log_losses})
+    if train and iter_start_time is not None:
+        t = time.time() - iter_start_time
+        print("training step: %8d, time: %.3f\nloss G: %.4f, L1_cloth loss: %.4f, Const loss %.4f"
+                % (step + 1, t, log_losses['warping_loss'], log_losses['warping_l1'], log_losses['const_loss']), flush=True)
+    else:
+        print("validation step: %8d, loss G: %.4f, L1_cloth loss: %.4f, Const loss %.4f"
+                % (step + 1,  log_losses['val_warping_loss'], log_losses['val_warping_l1'], log_losses['val_const_loss']), flush=True)
+
+def _train_ladi_vton_tps_():
+    global opt, root_opt, wandb,sweep_id
+    make_dirs(opt)
+    board = SummaryWriter(log_dir = opt.tensorboard_dir)
+    torch.cuda.set_device(f'cuda:{opt.device}')
+    if sweep_id is not None:
+        opt.lr = wandb.config.lr
+        
+    experiment_string = f"{root_opt.experiment_run.replace('/','_')}_{root_opt.opt_vton_yaml.replace('yaml/','')}"
+    with open(os.path.join(root_opt.experiment_run_yaml, experiment_string), 'w') as outfile:
         yaml.dump(vars(opt), outfile, default_flow_style=False)
     # Directories
     log_path = os.path.join(opt.results_dir, 'log.txt')
-    if not os.path.exists(opt.results_dir):
-        os.makedirs(opt.results_dir)
-        with open(log_path, 'w') as file:
-            file.write(f"Hello, this is experiment {root_opt.experiment_run} \n")
+    with open(log_path, 'w') as file:
+        file.write(f"Hello, this is experiment {root_opt.experiment_run} \n")
 
     dataset_output_list = ['c_name', 'im_name', 'cloth', 'image', 'im_cloth', 'im_mask', 'pose_map', 'category']
     if opt.dense:
@@ -546,7 +519,6 @@ def _train_ladi_vton_tps_(opt, root_opt,  wandb=None):
             
             warped_cloth_root = opt.results_dir
 
-            # save_name_paired = warped_cloth_root / 'warped_cloths' / opt.dataset
             save_name_paired = os.path.join(warped_cloth_root, 'warped_cloths', opt.dataset)
 
             extract_images(extraction_dataloader_paired, tps, refinement, save_name_paired, opt.height, opt.width)
@@ -565,77 +537,41 @@ def _train_ladi_vton_tps_(opt, root_opt,  wandb=None):
             opt.tps_load_final_checkpoint):
         print("No checkpoint found, before extracting warped cloth images, please train the model first.")
         exit()
-
-    # Training loop for TPS training
+        
     # Set training dataset height and width to (256, 192) since the TPS is trained using a lower resolution
     dataset_train.height = 256
     dataset_train.width = 192
     # for e in range(start_epoch, opt.epochs_tps):
     for e in range(start_epoch, opt.epochs_tps):
         print(f"Epoch {e}/{opt.epochs_tps}")
-        print('train')
-        train_loss, train_l1_loss, train_const_loss, visual = training_loop_tps(
+        iter_start_time = time.time()
+        train_loss, train_l1_loss, train_const_loss, visual,log_images, log_losses = training_loop_tps(
             dataloader_train,
             tps,
             optimizer_tps,
             criterion_l1,
             scaler,
             opt.const_weight)
-
-        # Compute loss on paired test set
-        print('paired test')
-        running_loss, vgg_running_loss, visual = compute_metric(
-            dataloader_test_paired,
-            tps,
-            criterion_l1,
-            criterion_vgg,
-            refinement=None,
-            height=opt.height,
-            width=opt.width)
-
+        # [[low_image, low_cloth, low_im_cloth, low_warped_cloth.clamp(-1, 1)]]
+        if (e + 1) % opt.display_count == 0:
+            log_results(log_images, log_losses, board,wandb, e, iter_start_time=iter_start_time, train=True)
+            
         imgs = torchvision.utils.make_grid(torch.cat(visual[0]), nrow=len(visual[0][0]), padding=2, normalize=True,
                                            range=None, scale_each=False, pad_value=0)
-
-        # Compute loss on unpaired test set
-        print('unpaired test')
-        running_loss_unpaired, vgg_running_loss_unpaired, visual = compute_metric(
-            dataloader_test_unpaired,
-            tps,
-            criterion_l1,
-            criterion_vgg,
-            refinement=None,
-            height=opt.height,
-            width=opt.width)
 
         imgs_unpaired = torchvision.utils.make_grid(torch.cat(visual[0]), nrow=len(visual[0][0]), padding=2,
                                                     normalize=True, range=None,
                                                     scale_each=False, pad_value=0)
-
-        # Log to wandb
-        if wandb is not None:
-            wandb.log({
-                'train/loss': train_loss,
-                'train/l1_loss': train_l1_loss,
-                'train/const_loss': train_const_loss,
-                'train/vgg_loss': 0,
-                'eval/eval_loss_paired': running_loss,
-                'eval/eval_vgg_loss_paired': vgg_running_loss,
-                'eval/eval_loss_unpaired': running_loss_unpaired,
-                'eval/eval_vgg_loss_unpaired': vgg_running_loss_unpaired,
-                'images_paired': wandb.Image(imgs),
-                'images_unpaired': wandb.Image(imgs_unpaired),
-            })
-
-        # Save checkpoint
-        os.makedirs(opt.tps_save_step_checkpoint_dir, exist_ok=True)
-        torch.save({
-            'epoch': e + 1,
-            'tps': tps.state_dict(),
-            'refinement': refinement.state_dict(),
-            'optimizer_tps': optimizer_tps.state_dict(),
-            'optimizer_ref': optimizer_ref.state_dict(),
-        }, opt.tps_save_step_checkpoint % (e + 1))
-        break
+        if (e + 1) % opt.save_period == 0:
+            os.makedirs(opt.tps_save_step_checkpoint_dir, exist_ok=True)
+            torch.save({
+                'epoch': e + 1,
+                'tps': tps.state_dict(),
+                'refinement': refinement.state_dict(),
+                'optimizer_tps': optimizer_tps.state_dict(),
+                'optimizer_ref': optimizer_ref.state_dict(),
+            }, opt.tps_save_step_checkpoint % (e + 1))
+        
     scaler = torch.cuda.amp.GradScaler()  # Initialize scaler again for refinement
 
     # Training loop for refinement
@@ -644,7 +580,7 @@ def _train_ladi_vton_tps_(opt, root_opt,  wandb=None):
     dataset_train.width = opt.width
     for e in range(max(start_epoch, opt.epochs_tps), max(start_epoch, opt.epochs_tps) + opt.epochs_refinement):
         print(f"Epoch {e}/{max(start_epoch, opt.epochs_tps) + opt.epochs_refinement}")
-        train_loss, train_l1_loss, train_vgg_loss, visual = training_loop_refinement(
+        train_loss, train_l1_loss, train_vgg_loss, visual, log_images, log_losses = training_loop_refinement(
             dataloader_train,
             tps,
             refinement,
@@ -657,60 +593,23 @@ def _train_ladi_vton_tps_(opt, root_opt,  wandb=None):
             opt.height,
             opt.width)
 
-        # Compute loss on paired test set
-        running_loss, vgg_running_loss, visual = compute_metric(
-            dataloader_test_paired,
-            tps,
-            criterion_l1,
-            criterion_vgg,
-            refinement=refinement,
-            height=opt.height,
-            width=opt.width)
-
         imgs = torchvision.utils.make_grid(torch.cat(visual[0]), nrow=len(visual[0][0]), padding=2, normalize=True,
                                            range=None, scale_each=False, pad_value=0)
-
-        # Compute loss on unpaired test set
-        running_loss_unpaired, vgg_running_loss_unpaired, visual = compute_metric(
-            dataloader_test_unpaired,
-            tps,
-            criterion_l1,
-            criterion_vgg,
-            refinement=refinement,
-            height=opt.height,
-            width=opt.width)
 
         imgs_unpaired = torchvision.utils.make_grid(torch.cat(visual[0]), nrow=len(visual[0][0]), padding=2,
                                                     normalize=True, range=None,
                                                     scale_each=False, pad_value=0)
-
-        # Log to wandb
-        if wandb is not None:
-            wandb.log({
-                'train/loss': train_loss,
-                'train/l1_loss': train_l1_loss,
-                'train/const_loss': 0,
-                'train/vgg_loss': train_vgg_loss,
-                'eval/eval_loss_paired': running_loss,
-                'eval/eval_vgg_loss_paired': vgg_running_loss,
-                'eval/eval_loss_unpaired': running_loss_unpaired,
-                'eval/eval_vgg_loss_unpaired': vgg_running_loss_unpaired,
-                'images_paired': wandb.Image(imgs),
-                'images_unpaired': wandb.Image(imgs_unpaired),
-            })
-        # break
-        # Save checkpoint
-        os.makedirs(opt.tps_save_step_checkpoint_dir, exist_ok=True)
-        
-        torch.save({
-            'epoch': e + 1,
-            'tps': tps.state_dict(),
-            'refinement': refinement.state_dict(),
-            'optimizer_tps': optimizer_tps.state_dict(),
-            'optimizer_ref': optimizer_ref.state_dict(),
-        }, opt.tps_save_step_checkpoint % (e + 1))
-        break
-    # Extract warped cloth images at the end of training
+        if (e + 1) % opt.display_count == 0:
+            log_results(log_images, log_losses, board,wandb, e, iter_start_time=iter_start_time, train=True)
+        if (e + 1) % opt.save_period == 0:
+            os.makedirs(opt.tps_save_step_checkpoint_dir, exist_ok=True)        
+            torch.save({
+                'epoch': e + 1,
+                'tps': tps.state_dict(),
+                'refinement': refinement.state_dict(),
+                'optimizer_tps': optimizer_tps.state_dict(),
+                'optimizer_ref': optimizer_ref.state_dict(),
+            }, opt.tps_save_step_checkpoint % (e + 1))
     print("Extracting warped cloth images...")
     extraction_dataset_paired = torch.utils.data.ConcatDataset([dataset_test_paired, dataset_train])
     extraction_dataloader_paired = DataLoader(batch_size=opt.viton_batch_size,
@@ -743,26 +642,4 @@ def _train_ladi_vton_tps_(opt, root_opt,  wandb=None):
         'optimizer_ref': optimizer_ref.state_dict(),
     }, opt.tps_save_final_checkpoint)
 
-import subprocess
-def train_ladi_vton_tps_(opt, root_opt, run_wandb=False):
-    # os.system('conda activate ladi-vton && conda env list | grep ladi')
-    command = "source ~/.bashrc && conda activate ladi-vton && conda env list | grep ladi"
-    subprocess.run(command, shell=True, executable='/bin/bash')
-    opt,root_opt = process_opt(opt, root_opt)
-    if run_wandb:
-        import wandb
-        wandb.login()
-        wandb.init(
-        project="Fashion-NeRF",
-        entity='prime_lab',
-        notes=f"{root_opt.question}",
-        tags=[f"{root_opt.experiment_run}"],
-        config=vars(opt)
-        )
-    else:
-        wandb = None
-    if wandb is not None:
-        temp_opt = vars(opt)
-        temp_opt['wandb_name'] = wandb.run.name
-        opt = argparse.Namespace(**temp_opt)
-    _train_ladi_vton_tps_(opt, root_opt,  wandb=wandb)
+

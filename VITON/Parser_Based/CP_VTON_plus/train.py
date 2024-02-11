@@ -140,7 +140,7 @@ def _train_cpvton_plus_():
         elif os.path.exists(opt.tom_load_final_checkpoint):
             load_checkpoint(model, opt.tom_load_final_checkpoint)
             print_log(log_path, f'Load pretrained model from {opt.tom_load_final_checkpoint}')
-        train_tom(opt, train_loader, gmm_model, model, board, wandb=wandb)
+        train_tom(opt, train_loader, validation_loader, gmm_model, model, board, wandb=wandb)
         save_checkpoint(model, opt.tom_save_final_checkpoint)
     
     print('Finished training named:' )
@@ -264,7 +264,7 @@ def validate_gmm(validation_loader,model, board, step, wandb=wandb):
     total_batches = len(validation_loader.dataset) // opt.viton_batch_size
     processed_batches = 0
     iter_start_time = time.time()
-    val_loss = 0
+    val_warping_loss = 0
     val_Lwarp = 0
     with torch.no_grad():
         while processed_batches < total_batches:
@@ -299,12 +299,12 @@ def validate_gmm(validation_loader,model, board, step, wandb=wandb):
             Lgic = Lgic / (grid.shape[0] * grid.shape[1] * grid.shape[2])
 
             loss = Lwarp + 40 * Lgic    # total GMM loss
-            val_loss += loss.item()
+            val_warping_loss += loss.item()
             val_Lwarp += Lwarp.item()
             processed_batches += 1
-        val_loss = val_loss / len(validation_loader.dataset)  
+        val_warping_loss = val_warping_loss / len(validation_loader.dataset)  
         val_Lwarp = val_Lwarp / len(validation_loader.dataset)  
-        log_losses = {'val_warping_loss':val_loss, 'val_warping_l1':val_Lwarp}
+        log_losses = {'val_warping_loss':val_warping_loss, 'val_warping_l1':val_Lwarp}
         log_images = {
                     'Val/Image': im[0].cpu().detach() / 2 + 0.5,
                     'Val/Pose Image': im_pose[0].cpu().detach() / 2 + 0.5,
@@ -316,6 +316,7 @@ def validate_gmm(validation_loader,model, board, step, wandb=wandb):
                 }
         log_results(log_images, log_losses, board,wandb, step, train=False)
     
+#             opt, train_loader, validation_loader, gmm_model, model, board, wandb=wandb
 def train_tom(opt, train_loader, validation_loader,  gmm_model, model, board, wandb=None):
     model.cuda()
     model.train()
@@ -379,15 +380,15 @@ def train_tom(opt, train_loader, validation_loader,  gmm_model, model, board, wa
         optimizer.step()
 
         if (step+1) % opt.display_count == 0:
-            log_images = {'Image', im[0].cpu().detach() / 2 + 0.5,
-              'Pose Image', im_pose[0].cpu().detach() / 2 + 0.5,
-              'Parse Clothing', im_c[0].cpu().detach() / 2 + 0.5,
-              'Warped Cloth', warped_cloth[0].cpu().detach() / 2 + 0.5,
-              'Warped Cloth Mask', (warped_mask*2-1)[0],
-              'Rendered Image', p_rendered[0].cpu().detach() / 2 + 0.5,
-              'Composition', p_tryon[0].cpu().detach() / 2 + 0.5}
-            log_losses = {'composition_loss', loss.item(),'l1_composition_loss', loss_l1.item(),
-            'vgg_composition_loss', loss_vgg.item(),'mask_composition_loss', loss_mask.item()}
+            log_images = {'Image': im[0].cpu().detach() / 2 + 0.5,
+              'Pose Image': im_pose[0].cpu().detach() / 2 + 0.5,
+              'Parse Clothing': im_c[0].cpu().detach() / 2 + 0.5,
+              'Warped Cloth': warped_cloth[0].cpu().detach() / 2 + 0.5,
+              'Warped Cloth Mask': (warped_mask*2-1)[0],
+              'Rendered Image': p_rendered[0].cpu().detach() / 2 + 0.5,
+              'Composition': p_tryon[0].cpu().detach() / 2 + 0.5}
+            log_losses = {'composition_loss': loss.item(),'l1_composition_loss': loss_l1.item(),
+            'vgg_composition_loss': loss_vgg.item(),'mask_composition_loss': loss_mask.item()}
             log_tom_results(log_images,log_losses, board,wandb, step,iter_start_time=iter_start_time,train=True)
             t = time.time() - iter_start_time
             print('step: %8d, time: %.3f, loss: %.4f, l1: %.4f, vgg: %.4f, mask: %.4f'
@@ -464,16 +465,16 @@ def validate_tom(validation_loader,model,gmm_model,board, step, wandb=wandb):
             if opt.clip_warping:
                 warped_cloth = warped_cloth * warped_mask + torch.ones_like(warped_cloth) * (1 - warped_mask)
             processed_batches += 1
-        log_images = {'Val/Image', im[0].cpu().detach() / 2 + 0.5,
-            'Val/Pose Image', im_pose[0].cpu().detach() / 2 + 0.5,
-            'Val/Parse Clothing', im_c[0].cpu().detach() / 2 + 0.5,
-            'Val/Warped Cloth', warped_cloth[0].cpu().detach() / 2 + 0.5,
-            'Val/Warped Cloth Mask', (warped_mask*2-1)[0],
-            'Val/Rendered Image', p_rendered[0].cpu().detach() / 2 + 0.5,
-            'Val/Composition', p_tryon[0].cpu().detach() / 2 + 0.5}
-        log_losses = {'val_composition_loss', val_composition_loss / len(validation_loader.dataset),'val_l1_composition_loss', val_l1_composition_loss / len(validation_loader.dataset),
-        'val_vgg_composition_loss', val_vgg_composition_loss / len(validation_loader.dataset),'val_mask_composition_loss', val_mask_composition_loss / len(validation_loader.dataset)}
-        log_results(log_images,log_losses, board,wandb, step,train=False)
+        log_images = {'Val/Image': im[0].cpu().detach() / 2 + 0.5,
+            'Val/Pose Image': im_pose[0].cpu().detach() / 2 + 0.5,
+            'Val/Parse Clothing': im_c[0].cpu().detach() / 2 + 0.5,
+            'Val/Warped Cloth': warped_cloth[0].cpu().detach() / 2 + 0.5,
+            'Val/Warped Cloth Mask': (warped_mask*2-1)[0],
+            'Val/Rendered Image': p_rendered[0].cpu().detach() / 2 + 0.5,
+            'Val/Composition': p_tryon[0].cpu().detach() / 2 + 0.5}
+        log_losses = {'val_composition_loss': val_composition_loss / len(validation_loader.dataset),'val_l1_composition_loss': val_l1_composition_loss / len(validation_loader.dataset),
+        'val_vgg_composition_loss': val_vgg_composition_loss / len(validation_loader.dataset),'val_mask_composition_loss': val_mask_composition_loss / len(validation_loader.dataset)}
+        log_tom_results(log_images,log_losses, board,wandb, step,train=False)
     
     
 

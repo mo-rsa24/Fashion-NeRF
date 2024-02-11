@@ -21,11 +21,11 @@ def get_root_opt_experiment_dir(root_opt):
     
     # GMM
     root_opt.gmm_experiment_from_dir = root_opt.gmm_experiment_from_dir.format(root_opt.VITON_Type, root_opt.VITON_Name, root_opt.gmm_load_from_model)
-    root_opt.gmm_experiment_from_dir = os.path.join(root_opt.gmm_experiment_from_dir, root_opt.VITON_Model)
+    root_opt.gmm_experiment_from_dir = os.path.join(root_opt.gmm_experiment_from_dir, "GMM")
     
     # GMM
     root_opt.tom_experiment_from_dir = root_opt.tom_experiment_from_dir.format(root_opt.VITON_Type, root_opt.VITON_Name, root_opt.tom_load_from_model)
-    root_opt.tom_experiment_from_dir = os.path.join(root_opt.tom_experiment_from_dir, root_opt.VITON_Model)    
+    root_opt.tom_experiment_from_dir = os.path.join(root_opt.tom_experiment_from_dir, 'TOM')    
     return root_opt
 
 

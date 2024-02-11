@@ -13,20 +13,6 @@ parameters:
     values: ['Adam', 'AdamW', 'SGD']
   clothmask_composition: 
     values: ['no_composition', 'detach', 'warp_grad']
-  segment_anything:
-    values: [True, False]
-  flow_self_attention:
-    values: [True, False]
-  flow_spatial_attention:
-    values: [True, False]
-  flow_channel_attention:
-    values: [True, False]
-  feature_pyramid_self_attention:
-    values: [True, False]
-  feature_pyramid_spatial_attention:
-    values: [True, False]
-  feature_pyramid_channel_attention:
-    values: [True, False]
   G_lr:
     values: [0.0001, 0.0002, 0.0003]
   D_lr:

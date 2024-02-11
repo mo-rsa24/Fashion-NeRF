@@ -45,16 +45,15 @@ parameters:
     min: 1
     max: 3
   align_corners:
-    values: [true, false]
+    value: false
   optimizer:
     values: ['Adam', 'SGD']  # You can add more optimizers if you want
   epsilon:
-    values: [0.001, 0.0001, 0.01]
+    value: 0.001
   momentum:
     values: [0.8, 0.9, 0.95]
   lr:
-    min: 0.00001
-    max: 0.0001
+    values: [0.00005,0.00002, 0.00001]
   pb_gen_lr:
     min: 0.1
     max: 0.3

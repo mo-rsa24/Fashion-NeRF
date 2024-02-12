@@ -3,7 +3,7 @@
 #SBATCH -t 72:00:00
 #SBATCH --exclude=mscluster68,mscluster48,mscluster82
 #SBATCH --ntasks=1
-#SBATCH --partition=bigbatch
+#SBATCH --partition=biggpu
 
 echo ------------------------------------------------------
 echo -n 'Job is running on node ' $SLURM_JOB_NODELIST
@@ -30,8 +30,8 @@ echo "Run From Number: $RUN_FROM_NUMBER"
 echo "Dataset Name: $DATASET_NAME"
 
 ./scripts/viton/viton.sh --job_name $VITON_NAME --task $TASK --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
-    --experiment_from_number 2 --run_from_number 21 \
-    --warp_experiment_from_number 2 --warp_run_from_number 21 --warp_load_from_model Rail \
+    --experiment_from_number 2 --run_from_number 29 \
+    --warp_experiment_from_number 2 --warp_run_from_number 29 --warp_load_from_model Rail \
     --gen_experiment_from_number 0 --gen_run_from_number 0 --gen_load_from_model Original \
     --dataset_name $DATASET_NAME --device 0 --load_last_step False --run_wandb $WANDB \
     --niter 50 --niter_decay 50 --display_count 10 --print_step 10 --save_period 10 --val_count 10 \

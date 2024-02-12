@@ -1,44 +1,53 @@
 # =====================  Sweep Hyperparameters
-program: train_pb_warp.py  # Replace with your actual training script
+program: train_pb_e2e.py  # Replace with your actual training script
 method: bayes  # Can be grid, random, or bayes
 metric:
-  name: val_warping_loss  # Replace with the metric you want to optimize, e.g., validation loss
+  name: val_composition_loss  # Replace with the metric you want to optimize, e.g., validation loss
   goal: minimize  # Can be minimize or maximize
 parameters:
   lambda_loss_second_smooth:
-    min: 1
-    max: 5
+    min: 4
+    max: 7
   lambda_loss_vgg:
     min: 0.1
-    max: 1.0
+    max: 0.3
+  lambda_loss_vgg_skin:
+    min: 2
+    max: 4
   lambda_loss_edge:
     min: 1
     max: 3
   lambda_loss_smooth:
-    min: 0.001
-    max: 0.1
+    min: 0.01
+    max: 0.03
   lambda_loss_l1:
-    min: 3
-    max: 9
+    min: 4
+    max: 6
   lambda_bg_loss_l1:
-    min: 2
-    max: 8
+    min: 4
+    max: 7
   lambda_loss_warp:
-    min: 0.2
+    min: 0.3
     max: 0.6
   lambda_loss_gen:
-    min: 0.5
-    max: 1.5
+    min: 0.8
+    max: 1.2
   lambda_cond_sup_loss:
     min: 0.02
     max: 0.06
   lambda_warp_sup_loss:
     min: 0.02
     max: 0.06
+  lambda_loss_l1_skin:
+    min: 30 
+    max: 60
+  lambda_loss_l1_mask:
+    min: 1
+    max: 3
   align_corners:
-    value: false
+    values: [true, false]
   optimizer:
-    values: ['Adam', 'SGD']  # You can add more optimizers if you want
+    values: ['Adam', 'SGD', 'AdamW']  # You can add more optimizers if you want
   epsilon:
     value: 0.001
   momentum:
@@ -46,5 +55,4 @@ parameters:
   lr:
     values: [0.00005,0.00002, 0.00001]
   pb_gen_lr:
-    min: 0.1
-    max: 0.3
+    values: [0.00005,0.00002, 0.00001]

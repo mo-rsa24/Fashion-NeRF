@@ -32,7 +32,7 @@ def get_wandb_image(image, wandb):
     return wandb.Image(image_numpy)   
 
 def train_batch(
-   opt, root_opt, train_loader, models, optimizers, criterions, device, writer, global_step, wandb=None, epoch=0
+   opt, root_opt, train_loader, models, optimizers, criterions, device, writer, wandb=None, epoch=0
 ):
     batch_start_time = time.time()
 
@@ -61,7 +61,6 @@ def train_batch(
             person_clothes_edge = torch.FloatTensor(((data['label'] == 5) | (data['label'] == 6) | (data['label'] == 7)).cpu().numpy().astype(np.int64))
         else:
             person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
-        person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
         real_image = data['image']
         person_clothes = real_image * person_clothes_edge
         pose = data['pose']
@@ -240,7 +239,6 @@ def train_batch(
             [a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], i[0], j[0], k[0]], 2
         ).squeeze()
         cv_img = (combine.permute(1, 2, 0).detach().cpu().numpy() + 1) / 2
-        writer.add_image('combine', (combine.data + 1) / 2.0, global_step)
         log_losses = {'warping_loss': warping_loss / len(train_loader.dataset) ,'l1_composition_loss': l1_composition_loss / len(train_loader.dataset),'vgg_composition_loss': vgg_composition_loss / len(train_loader.dataset),
                       'gan_composition_loss':gan_composition_loss / len(train_loader.dataset),'composition_loss': composition_loss / len(train_loader.dataset)}
         log_images = {'Image': (a[0].cpu() / 2 + 0.5), 
@@ -312,7 +310,6 @@ def validate_batch(opt, root_opt,validation_loader,models,criterions,device,writ
             person_clothes_edge = torch.FloatTensor(((data['label'] == 5) | (data['label'] == 6) | (data['label'] == 7)).cpu().numpy().astype(np.int64))
         else:
             person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
-        person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
         real_image = data['image']
         person_clothes = real_image * person_clothes_edge
         pose = data['pose']
@@ -513,7 +510,6 @@ def train_pb_e2e():
     if sweep_id is not None:
         opt.lambda_loss_second_smooth = wandb.config.lambda_loss_second_smooth
         opt.lambda_loss_vgg = wandb.config.lambda_loss_vgg
-        opt.lambda_loss_vgg_skin = wandb.config.lambda_loss_vgg_skin
         opt.lambda_loss_edge = wandb.config.lambda_loss_edge
         opt.lambda_loss_smooth = wandb.config.lambda_loss_smooth
         opt.lambda_loss_l1 = wandb.config.lambda_loss_l1
@@ -522,8 +518,6 @@ def train_pb_e2e():
         opt.lambda_loss_gen = wandb.config.lambda_loss_gen
         opt.lambda_cond_sup_loss = wandb.config.lambda_cond_sup_loss
         opt.lambda_warp_sup_loss = wandb.config.lambda_warp_sup_loss
-        opt.lambda_loss_l1_skin = wandb.config.lambda_loss_l1_skin
-        opt.lambda_loss_l1_mask = wandb.config.lambda_loss_l1_mask
         opt.align_corners = wandb.config.align_corners
         opt.optimizer = wandb.config.optimizer
         opt.epsilon = wandb.config.epsilon
@@ -563,7 +557,7 @@ def train_pb_e2e():
 
     # Optimizer
     warp_optimizer = smart_optimizer(
-        model=warp_model, name=opt.optimizer, lr=opt.pb_gen_lr * opt.lr, momentum=opt.momentum
+        model=warp_model, name=opt.optimizer, lr=0.2 * opt.lr , momentum=opt.momentum
     )
     gen_optimizer = smart_optimizer(
         model=gen_model, name=opt.optimizer, lr=opt.lr, momentum=opt.momentum
@@ -613,7 +607,6 @@ def train_pb_e2e():
             criterions={'L1': criterionL1, 'VGG': criterionVGG},
             device=device,
             writer=writer,
-            global_step=global_step,
             wandb=wandb,
             epoch=epoch
         )

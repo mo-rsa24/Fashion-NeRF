@@ -183,7 +183,7 @@ def train_pfafn_pb_gen_(opt_, root_opt_, run_wandb=False, sweep=None):
         import wandb 
         wandb.login()
         sweep_id = wandb.sweep(sweep=sweep, project="Fashion-NeRF-Sweep")
-        wandb.agent(sweep_id,_train_pfafn_pb_gen__sweep,count=3)
+        wandb.agent(sweep_id,_train_pfafn_pb_gen_sweep,count=3)
     elif run_wandb:
         import wandb
         wandb.login()
@@ -197,10 +197,10 @@ def train_pfafn_pb_gen_(opt_, root_opt_, run_wandb=False, sweep=None):
         _train_pfafn_pb_gen_()
     
     
-def _train_pfafn_pb_gen__sweep():
+def _train_pfafn_pb_gen_sweep():
     if wandb is not None:
         with wandb.init(project="Fashion-NeRF-Sweep", entity='rail_lab', tags=[f"{root_opt.experiment_run}"], config=vars(opt)):
-            _train_pfafn_pb_gen__sweep()
+            _train_pfafn_pb_gen_()
             
 def split_dataset(dataset,train_size=0.8):
     dataset_size = len(dataset)

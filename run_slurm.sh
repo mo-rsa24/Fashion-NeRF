@@ -4,14 +4,14 @@
 #depending on TOCG or GEN
 
 # run_number > 10 = Trained using new wandb
-experiment_number=8
+experiment_number=22
 run_number=30 # Compare all methods
 experiment_from_number=0
 run_from_number=0
 seed_number=1
-VITON_Type="Parser_Based" # [Parser_Based, Parser_Free]
-VITON_Name="CP_VTON" # [FS_VTON, PF_AFN,DM_VTON, ACGPN, CP_VTON, CP_VTON_plus, HR_VITON, Ladi_VITON,SD_VITON]
-task="TOM" # [PB_Gen, PB_Warp,PF_Warp, PF_Gen, EMASC, GMM, TOM, TOCG, GEN]
+VITON_Type="Parser_Free" # [Parser_Based, Parser_Free]
+VITON_Name="PF_AFN" # [FS_VTON, PF_AFN,DM_VTON, ACGPN, CP_VTON, CP_VTON_plus, HR_VITON, Ladi_VITON,SD_VITON]
+task="PB_Gen" # [PB_Gen, PB_Warp,PF_Warp, PF_Gen, EMASC, GMM, TOM, TOCG, GEN]
 dataset_name="Rail" # [Original, Rail]
 # log="viton.%N.%j"
 log="viton.%N"

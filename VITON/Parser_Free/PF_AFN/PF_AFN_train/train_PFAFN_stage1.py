@@ -332,19 +332,15 @@ def _train_pfafn_pf_warp_():
     total_valid_steps = (start_epoch - 1) * dataset_size + epoch_iter
 
     writer = SummaryWriter(opt.tensorboard_dir)
-
-    step = 0
-    step_per_batch = dataset_size
     
     for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
-        epoch_start_time = time.time()
         if epoch != start_epoch:
             epoch_iter = epoch_iter % dataset_size
 
         train_batch(opt, root_opt, train_loader, 
                     PB_warp_model,PF_warp_model,PB_gen_model, total_steps,
                     epoch,epoch_iter,criterionL1,criterionVGG,optimizer,optimizer_part,
-                    writer, step_per_batch,epoch_start_time)
+                    writer)
         if epoch % opt.val_count == 0:
             with torch.no_grad():
                 validate_batch(opt, root_opt, validation_loader, 
@@ -501,7 +497,7 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
 def train_batch(opt, root_opt, train_loader, 
                     PB_warp_model,PF_warp_model,PB_gen_model, total_steps,
                     epoch,epoch_iter,criterionL1,criterionVGG,optimizer,optimizer_part,
-                    writer, step_per_batch,epoch_start_time):
+                    writer):
     PB_warp_model.train()
     PF_warp_model.train()
     PB_gen_model.train()

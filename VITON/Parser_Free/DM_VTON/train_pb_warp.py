@@ -33,7 +33,7 @@ def get_wandb_image(image, wandb):
     return wandb.Image(image_numpy)   
 
 def train_batch(
-    opt, root_opt, train_loader, models, optimizers, criterions, device, writer, global_step, wandb=None,epoch=0
+    opt, root_opt, train_loader, models, optimizers, criterions, device, writer,wandb=None,epoch=0
 ):
     
     
@@ -608,7 +608,6 @@ def _train_pb_warp_():
                 criterions={'L1': criterionL1, 'VGG': criterionVGG},
                 device=device,
                 writer=writer,
-                global_step=global_step,
                 wandb=wandb,
                 epoch=epoch
             )

@@ -301,14 +301,14 @@ def _train_pfafn_pf_warp_():
     PB_warp_model = AFWM(opt, 45)
     print(PB_warp_model)
     PB_warp_model.eval()
-    PB_warp_model.cuda()
+    # PB_warp_model.cuda()
     if os.path.exists(opt.pb_warp_load_final_checkpoint_dir):
         load_checkpoint_part_parallel(opt, PB_warp_model, opt.pb_warp_load_final_checkpoint)
 
     PB_gen_model = ResUnetGenerator(opt, 8, 4, 5, ngf=64, norm_layer=nn.BatchNorm2d)
     print(PB_gen_model)
     PB_gen_model.eval()
-    PB_gen_model.cuda()
+    # PB_gen_model.cuda()
     if os.path.exists(opt.pb_gen_load_final_checkpoint_dir):
         load_checkpoint_parallel(opt, PB_gen_model, opt.pb_gen_load_final_checkpoint)
 

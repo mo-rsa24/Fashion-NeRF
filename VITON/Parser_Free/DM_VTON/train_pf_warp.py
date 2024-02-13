@@ -38,9 +38,6 @@ def validate_batch(opt, root_opt, validation_loader,models,criterions,device,wri
         models['pb_gen'],
         models['pf_warp'],
     )
-    pb_warp_model.eval() 
-    pb_gen_model.eval()
-    pf_warp_model.eval()
     criterionL1, criterionVGG = criterions['L1'], criterions['VGG']
     val_warping_loss = 0
     val_warping_l1 = 0
@@ -105,9 +102,10 @@ def validate_batch(opt, root_opt, validation_loader,models,criterions,device,wri
 
         concat_un = torch.cat([preserve_mask.to(device), densepose, pose.to(device)], 1)
         with cupy.cuda.Device(int(device.split(':')[-1])):
-            flow_out_un = pb_warp_model(
-                concat_un.to(device), clothes_un.to(device), pre_clothes_edge_un.to(device)
-            )
+            with torch.no_grad():
+                flow_out_un = pb_warp_model(
+                    concat_un.to(device), clothes_un.to(device), pre_clothes_edge_un.to(device)
+                )
         (
             warped_cloth_un,
             last_flow_un,
@@ -131,9 +129,10 @@ def validate_batch(opt, root_opt, validation_loader,models,criterions,device,wri
             binary_mask = (warped_prod_edge_un > 0.5).float()
             warped_cloth_un = warped_cloth_un * binary_mask
         with cupy.cuda.Device(int(device.split(':')[-1])):
-            flow_out_sup = pb_warp_model(
-                concat_un.to(device), clothes.to(device), pre_clothes_edge.to(device)
-            )
+            with torch.no_grad():
+                flow_out_sup = pb_warp_model(
+                    concat_un.to(device), clothes.to(device), pre_clothes_edge.to(device)
+                )
         (
             warped_cloth_sup,
             last_flow_sup,
@@ -181,7 +180,8 @@ def validate_batch(opt, root_opt, validation_loader,models,criterions,device,wri
         gen_inputs_un = torch.cat(
             [preserve_region.to(device), warped_cloth_un, warped_prod_edge_un, dense_preserve_mask], 1
         )
-        gen_outputs_un = pb_gen_model(gen_inputs_un)
+        with torch.no_grad():
+            gen_outputs_un = pb_gen_model(gen_inputs_un)
         p_rendered_un, m_composite_un = torch.split(gen_outputs_un, [3, 1], 1)
         p_rendered_un = torch.tanh(p_rendered_un)
         m_composite_un = torch.sigmoid(m_composite_un)
@@ -326,6 +326,9 @@ def train_batch(
     criterionL1, criterionVGG = criterions['L1'], criterions['VGG']
     pf_warp_model.train()
     pf_warp_model.cuda()
+    train_warping_loss = 0
+    train_warping_l1 = 0
+    train_warping_vgg = 0
     for idx, data in enumerate(train_loader):
         if root_opt.dataset_name == 'Rail':
             t_mask = torch.FloatTensor(((data['label'] == 3) | (data['label'] == 11)).cpu().numpy().astype(np.int64))
@@ -386,9 +389,10 @@ def train_batch(
 
         concat_un = torch.cat([preserve_mask.to(device), densepose, pose.to(device)], 1)
         with cupy.cuda.Device(int(device.split(':')[-1])):
-            flow_out_un = pb_warp_model(
-                concat_un.to(device), clothes_un.to(device), pre_clothes_edge_un.to(device)
-            )
+            with torch.no_grad():
+                flow_out_un = pb_warp_model(
+                    concat_un.to(device), clothes_un.to(device), pre_clothes_edge_un.to(device)
+                )
         (
             warped_cloth_un,
             last_flow_un,
@@ -412,9 +416,10 @@ def train_batch(
             binary_mask = (warped_prod_edge_un > 0.5).float()
             warped_cloth_un = warped_cloth_un * binary_mask
         with cupy.cuda.Device(int(device.split(':')[-1])):
-            flow_out_sup = pb_warp_model(
-                concat_un.to(device), clothes.to(device), pre_clothes_edge.to(device)
-            )
+            with torch.no_grad():
+                flow_out_sup = pb_warp_model(
+                    concat_un.to(device), clothes.to(device), pre_clothes_edge.to(device)
+                )
         (
             warped_cloth_sup,
             last_flow_sup,
@@ -462,7 +467,8 @@ def train_batch(
         gen_inputs_un = torch.cat(
             [preserve_region.to(device), warped_cloth_un, warped_prod_edge_un, dense_preserve_mask], 1
         )
-        gen_outputs_un = pb_gen_model(gen_inputs_un)
+        with torch.no_grad():
+            gen_outputs_un = pb_gen_model(gen_inputs_un)
         p_rendered_un, m_composite_un = torch.split(gen_outputs_un, [3, 1], 1)
         p_rendered_un = torch.tanh(p_rendered_un)
         m_composite_un = torch.sigmoid(m_composite_un)
@@ -563,7 +569,7 @@ def train_batch(
         train_warping_l1 += loss_l1.item()
         train_warping_vgg += loss_vgg.item()
         
-        train_batch_time = time.time() - batch_start_time
+    
 
         # Visualize
     if (epoch + 1) % opt.display_count == 0:
@@ -586,7 +592,6 @@ def train_batch(
         h = torch.cat([warped_prod_edge, warped_prod_edge, warped_prod_edge], 1)
         combine = torch.cat([a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0]], 2).squeeze()
         cv_img = (combine.permute(1, 2, 0).detach().cpu().numpy() + 1) / 2
-        writer.add_image('combine', (combine.data + 1) / 2.0, global_step)
         rgb = (cv_img * 255).astype(np.uint8)
         log_losses = {'warping_loss': train_warping_loss / len(train_loader.dataset) ,'warping_l1':train_warping_l1 / len(train_loader.dataset),'warping_vgg': train_warping_vgg / len(train_loader.dataset)}
         log_images = {'Image': (a[0].cpu() / 2 + 0.5), 
@@ -599,8 +604,6 @@ def train_batch(
         log_results(log_images, log_losses, writer,wandb, epoch, iter_start_time=batch_start_time, train=True)
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"), bgr)
-
-    return loss_all.item(), train_batch_time
 
 def log_results(log_images, log_losses, board,wandb, step, iter_start_time=None, train=True):
     table = 'Table' if train else 'Val_Table'
@@ -630,8 +633,6 @@ def make_dirs(opt):
         os.makedirs(opt.results_dir)
     if not os.path.exists(os.path.join(opt.results_dir, 'val')):
         os.makedirs(os.path.join(opt.results_dir, 'val'))
-    if not os.path.exists(opt.results_dir):
-        os.makedirs(opt.results_dir)
     if not os.path.exists(opt.pf_warp_save_step_checkpoint_dir):
         os.makedirs(opt.pf_warp_save_step_checkpoint_dir)
     if not os.path.exists(opt.pf_warp_save_final_checkpoint_dir):
@@ -733,12 +734,9 @@ def _train_pf_warp_():
     # Start training
     nb = len(train_loader)  # number of batches
     total_steps = epoch_num * nb
-    eta_meter = AverageMeter()
     global_step = 1
     t0 = time.time()
     train_loss = 0
-    val_loss = 0
-    steps_loss = 0
 
     for epoch in range(start_epoch, epoch_num + 1):
         epoch_start_time = time.time()
@@ -757,16 +755,17 @@ def _train_pf_warp_():
         
         
         if epoch % opt.val_count == 0:
-            validate_batch(
-            opt, root_opt, validation_loader,
-            models={'pb_warp': pb_warp_model, 'pb_gen': pb_gen_model, 'pf_warp': pf_warp_model},
-            criterions={'L1': criterionL1, 'L2': criterionL2, 'VGG': criterionVGG},
-            device=device,
-            writer=writer,
-            global_step=global_step,
-            wandb=wandb,
-            epoch=epoch
-            )
+            with torch.no_grad():
+                validate_batch(
+                opt, root_opt, validation_loader,
+                models={'pb_warp': pb_warp_model, 'pb_gen': pb_gen_model, 'pf_warp': pf_warp_model},
+                criterions={'L1': criterionL1, 'L2': criterionL2, 'VGG': criterionVGG},
+                device=device,
+                writer=writer,
+                global_step=global_step,
+                wandb=wandb,
+                epoch=epoch
+                )
         global_step += 1
         # Scheduler
         warp_scheduler.step()
@@ -783,13 +782,6 @@ def _train_pf_warp_():
             print_log(
                 log_path, 'Saving the model at the end of epoch %d, iters %d' % (epoch, total_steps)
             )
-        # del warp_ckpt
-
-        print_log(
-            log_path,
-            'End of epoch %d / %d: train_loss: %.3f \t time: %d sec'
-            % (epoch, opt.niter + opt.niter_decay, train_loss, time.time() - epoch_start_time),
-        )
         # end epoch -------------------------------------------------------------------------------
     # end training --------------------------------------------------------------------------------
     print_log(

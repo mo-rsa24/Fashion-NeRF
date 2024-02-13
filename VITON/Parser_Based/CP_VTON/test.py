@@ -55,7 +55,9 @@ def test_gmm(opt, test_loader, model, board):
         warped_cloth = F.grid_sample(c, grid, padding_mode='border')
         warped_mask = F.grid_sample(cm, grid, padding_mode='zeros')
         warped_grid = F.grid_sample(im_g, grid, padding_mode='zeros')
-
+        # if opt.clip_warping:
+        #     warped_cloth = warped_cloth * warped_mask + torch.ones_like(warped_cloth) * (1 - warped_mask)
+            
         visuals = [ [im_h, shape, im_pose], 
                    [c, warped_cloth, im_c], 
                    [warped_grid, (warped_cloth+im)*0.5, im]]
@@ -66,8 +68,8 @@ def test_gmm(opt, test_loader, model, board):
         image_name = os.path.join(prediction_dir, inputs['im_name'][0])
         ground_truth_image_name = os.path.join(ground_truth_dir, inputs['im_name'][0])
         ground_truth_mask_name = os.path.join(ground_truth_mask_dir, inputs['im_name'][0])
-        save_image(warped_cloth, image_name)
-        save_image(im_c, ground_truth_image_name)
+        save_image(warped_cloth.cpu().detach() / 2 + 0.5, image_name)
+        save_image(im_c.cpu().detach() / 2 + 0.5, ground_truth_image_name)
         save_image(warped_mask, ground_truth_mask_name)
             
         if (step+1) % opt.display_count == 0:
@@ -111,17 +113,20 @@ def test_tom(opt, test_loader, gmm_model, model, board):
         agnostic = inputs['agnostic'].cuda()
         c = inputs['cloth'].cuda()
         cm = inputs['cloth_mask'].cuda()
-        
-        outputs = model(torch.cat([agnostic, c],1))
-        p_rendered, m_composite = torch.split(outputs, 3,1)
-        p_rendered = F.tanh(p_rendered)
-        m_composite = F.sigmoid(m_composite)
-        p_tryon = c * m_composite + p_rendered * (1 - m_composite)
+    
         
         grid, theta = gmm_model(agnostic, c)
         warped_cloth = F.grid_sample(c, grid, padding_mode='border')
         warped_mask = F.grid_sample(cm, grid, padding_mode='zeros')
         
+        if opt.clip_warping:
+            warped_cloth = warped_cloth * warped_mask + torch.ones_like(warped_cloth) * (1 - warped_mask)
+        
+        outputs = model(torch.cat([agnostic, warped_cloth],1))
+        p_rendered, m_composite = torch.split(outputs, 3,1)
+        p_rendered = F.tanh(p_rendered)
+        m_composite = F.sigmoid(m_composite)
+        p_tryon = warped_cloth * m_composite + p_rendered * (1 - m_composite)
         
         visuals = [ [im_h, shape, im_pose], 
                    [warped_cloth, warped_mask*2-1, m_composite*2-1], 
@@ -131,8 +136,8 @@ def test_tom(opt, test_loader, gmm_model, model, board):
         
         image_name = os.path.join(prediction_dir, inputs['im_name'][0])
         ground_truth_image_name = os.path.join(ground_truth_dir, inputs['im_name'][0])
-        save_image(im, image_name)
-        save_image(p_tryon, ground_truth_image_name)
+        save_image(im.cpu().detach() / 2 + 0.5, ground_truth_image_name)
+        save_image(p_tryon.cpu().detach() / 2 + 0.5, image_name)
         if (step+1) % opt.display_count == 0:
             board_add_images(board, 'combine', visuals, step+1)
             t = time.time() - iter_start_time

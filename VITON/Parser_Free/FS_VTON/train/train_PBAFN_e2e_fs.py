@@ -181,7 +181,6 @@ def _train_fsvton_pb_gen_():
   step_per_batch = dataset_size
 
   for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
-      epoch_start_time = time.time()
       if epoch != start_epoch:
           epoch_iter = epoch_iter % dataset_size
       train_batch(opt, train_loader, 
@@ -492,12 +491,6 @@ def validate_batch(opt, validation_loader,model_gen, model,total_steps, epoch,cr
     loss_all = opt.lambda_loss_warp * warp_loss + opt.lambda_loss_gen * gen_loss
     total_loss_warping += loss_all
     
-
-    optimizer_warp.zero_grad()
-    optimizer_gen.zero_grad()
-    loss_all.backward()
-    optimizer_warp.step()
-    optimizer_gen.step()
     a = real_image.float().cuda()
     b = person_clothes.cuda()
     c = clothes.cuda()

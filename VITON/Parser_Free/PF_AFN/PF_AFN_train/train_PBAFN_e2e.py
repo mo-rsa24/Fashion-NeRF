@@ -306,26 +306,24 @@ def _train_pfafn_pb_gen_():
 
     total_steps = (start_epoch-1) * dataset_size + epoch_iter
     total_valid_steps = (start_epoch-1) * dataset_size + epoch_iter
-    step = 0
-    step_per_batch = dataset_size
 
     for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
-        epoch_start_time = time.time()
         if epoch != start_epoch:
             epoch_iter = epoch_iter % dataset_size
 
         train_batch(opt, root_opt, train_loader, 
                     gen_model, warp_model,total_steps,epoch,epoch_iter,criterionL1,criterionVGG,optimizer_gen,optimizer_warp,
-                    writer, step_per_batch,epoch_start_time)
+                    writer)
 
         if epoch % opt.val_count == 0:
-            validate_batch(opt, root_opt, validation_loader,gen_model, 
-                           warp_model,total_valid_steps, epoch,criterionL1,criterionVGG, writer)
+            with torch.no_grad():
+                validate_batch(opt, root_opt, validation_loader,gen_model, 
+                            warp_model,total_valid_steps, epoch,criterionL1,criterionVGG, writer)
     save_checkpoint(warp_model, opt.pb_warp_save_final_checkpoint)
     save_checkpoint(gen_model, opt.pb_gen_save_final_checkpoint)
     
     
-def train_batch(opt, root_opt, train_loader,gen_model, warp_model,total_steps, epoch,epoch_iter,criterionL1,criterionVGG,optimizer_gen,optimizer_warp, writer, step_per_batch,epoch_start_time):    
+def train_batch(opt, root_opt, train_loader,gen_model, warp_model,total_steps, epoch,epoch_iter,criterionL1,criterionVGG,optimizer_gen,optimizer_warp, writer):    
     gen_model.train()
     warp_model.train()
     total_loss_warping = 0

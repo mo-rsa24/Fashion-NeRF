@@ -3,7 +3,7 @@
 #SBATCH -t 72:00:00
 #SBATCH --exclude=mscluster68,mscluster48,mscluster82
 #SBATCH --ntasks=1
-#SBATCH --partition=bigbatch
+#SBATCH --partition=biggpu
 
 echo ------------------------------------------------------
 echo -n 'Job is running on node ' $SLURM_JOB_NODELIST
@@ -32,8 +32,8 @@ export CUDA_VISIBLE_DEVICES=$DEVICE
 
 # Parser_Based Gen``
 ./scripts/viton/viton.sh --job_name $VITON_NAME --task $TASK --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
-    --experiment_from_number 30 --run_from_number 22 \
-    --warp_experiment_from_number 30 --warp_run_from_number 22 --warp_load_from_model Rail \
+    --experiment_from_number 30 --run_from_number 29 \
+    --warp_experiment_from_number 30 --warp_run_from_number 29 --warp_load_from_model Rail \
     --gen_experiment_from_number 0 --gen_run_from_number 0 --gen_load_from_model Original \
     --dataset_name $DATASET_NAME --device $DEVICE --load_last_step False --run_wandb $WANDB \
     --niter 50 --niter_decay 50 --display_count 10 --print_step 10 --save_period 10 --val_count 10 \

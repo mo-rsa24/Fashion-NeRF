@@ -4,13 +4,13 @@
 #depending on TOCG or GEN
 
 # run_number > 10 = Trained using new wandb
-experiment_number=22
+experiment_number=32
 run_number=30 # Compare all methods
 experiment_from_number=0
 run_from_number=0
 seed_number=1
-VITON_Type="Parser_Free" # [Parser_Based, Parser_Free]
-VITON_Name="PF_AFN" # [FS_VTON, PF_AFN,DM_VTON, ACGPN, CP_VTON, CP_VTON_plus, HR_VITON, Ladi_VITON,SD_VITON]
+VITON_Type="Parser_Free" # [Parser_Based, Parser_Free, Share]
+VITON_Name="FS_VTON" # [FS_VTON, PF_AFN,DM_VTON, ACGPN, CP_VTON, CP_VTON_plus, HR_VITON, Ladi_VITON,SD_VITON]
 task="PB_Gen" # [PB_Gen, PB_Warp,PF_Warp, PF_Gen, EMASC, GMM, TOM, TOCG, GEN]
 dataset_name="Rail" # [Original, Rail]
 # log="viton.%N.%j"
@@ -32,11 +32,16 @@ export DATASET_NAME=$dataset_name
 export TASK=$task
 export SEED=$seed_number
 export DEBUG=0
-export WANDB=0
-export SWEEPS=1
+export WANDB=1
+export SWEEPS=0
 export DATAMODE=train
 export DEVICE=0
 export VITON_NAME=$VITON_Name
+
+if [ "$VITON_Name" == "Share" ]
+then 
+    sbatch -J "${VITON_Name}_${run_number}" -o "$output" -e "$error" slurms/viton/share_biggpu/pb_e2e.slurm
+fi
 
 if [ "$VITON_Name" == "DM_VTON" ]
 then 

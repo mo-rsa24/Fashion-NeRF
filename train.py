@@ -46,10 +46,13 @@ def train_pfafn(opt, root_opt, run_wandb, sweeps, VITON_Model):
 def train_fsvton(opt, root_opt, run_wandb, sweeps, VITON_Model):
     from VITON.Parser_Free.FS_VTON.train.train_PBAFN_stage1_fs import train_fsvton_pb_warp_
     from VITON.Parser_Free.FS_VTON.train.train_PBAFN_e2e_fs import train_fsvton_pb_gen_
+    from VITON.Parser_Free.FS_VTON.train.train_PFAFN_stage1_fs import train_fsvton_pf_warp_
     if VITON_Model == 'PB_Warp':
         train_fsvton_pb_warp_(opt, root_opt, run_wandb=run_wandb, sweep=sweeps)
     elif VITON_Model == 'PB_Gen':
         train_fsvton_pb_gen_(opt, root_opt, run_wandb=run_wandb, sweep=sweeps)
+    elif VITON_Model == 'PF_Warp':
+        train_fsvton_pf_warp_(opt, root_opt, run_wandb=run_wandb, sweep=sweeps)
         
 
 def train_hrviton(opt, root_opt, run_wandb, sweeps, VITON_Model):

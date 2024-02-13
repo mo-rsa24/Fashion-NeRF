@@ -1,9 +1,9 @@
 import time
 import yaml
-from options.train_options import TrainOptions
-from models.networks import ResUnetGenerator, VGGLoss, save_checkpoint, load_checkpoint_part_parallel, \
+from VITON.Parser_Free.FS_VTON.train.models.networks import ResUnetGenerator, save_checkpoint, load_checkpoint_part_parallel, \
     load_checkpoint_parallel
-from models.afwm import TVLoss, AFWM
+from VITON.Parser_Free.PF_AFN.PF_AFN_train.models.networks import VGGLoss
+from VITON.Parser_Free.FS_VTON.train.models.afwm import TVLoss, AFWM
 import torch.nn as nn
 import argparse
 import torch.nn.functional as F
@@ -148,7 +148,7 @@ def _train_fsvton_pf_warp_():
     if os.path.exists(opt.pb_warp_load_final_checkpoint_dir):
         load_checkpoint_parallel(opt, PB_warp_model, opt.pb_warp_load_final_checkpoint)
 
-    PB_gen_model = ResUnetGenerator(8, 4, 5, ngf=64, norm_layer=nn.BatchNorm2d)
+    PB_gen_model = ResUnetGenerator(8, 4, 5, opt, ngf=64, norm_layer=nn.BatchNorm2d)
     print(PB_gen_model)
     PB_gen_model.eval()
     PB_gen_model.cuda()
@@ -186,7 +186,7 @@ def _train_fsvton_pf_warp_():
         train_batch(opt, root_opt, train_loader, 
                     PB_warp_model,PF_warp_model,PB_gen_model, total_steps,
                     epoch,epoch_iter,criterionL1,criterionVGG,optimizer,optimizer_part,
-                    writer, step_per_batch,epoch_start_time)
+                    writer)
         if epoch % opt.val_count == 0:
             with torch.no_grad():
                 validate_batch(opt, root_opt, validation_loader, 
@@ -198,11 +198,10 @@ def _train_fsvton_pf_warp_():
 def train_batch(opt, root_opt, train_loader, 
                     PB_warp_model,PF_warp_model,PB_gen_model, total_steps,
                     epoch,epoch_iter,criterionL1,criterionVGG,optimizer,optimizer_part,
-                    writer, step_per_batch,epoch_start_time):
+                    writer):
     PB_warp_model.train()
     PF_warp_model.train()
     PB_gen_model.train()
-    total_loss_warping = 0
     dataset_size = len(train_loader)
     train_warping_loss = 0
     train_warping_l1 = 0
@@ -212,7 +211,7 @@ def train_batch(opt, root_opt, train_loader,
 
         total_steps += 1
         epoch_iter += 1
-
+        
         if root_opt.dataset_name == 'Rail':
             t_mask = torch.FloatTensor(((data['label'] == 3) | (data['label'] == 11)).cpu().numpy().astype(np.int64))
         else:
@@ -269,7 +268,8 @@ def train_batch(opt, root_opt, train_loader,
         preserve_mask = torch.cat([face_mask, other_clothes_mask], 1)
 
         concat_un = torch.cat([preserve_mask.cuda(), densepose, pose.cuda()], 1)
-        flow_out_un = PB_warp_model(concat_un.cuda(), clothes_un.cuda(), pre_clothes_edge_un.cuda())
+        with torch.no_grad():
+            flow_out_un = PB_warp_model(concat_un.cuda(), clothes_un.cuda(), pre_clothes_edge_un.cuda())
         warped_cloth_un, last_flow_un, cond_un_all, flow_un_all, delta_list_un, x_all_un, x_edge_all_un, delta_x_all_un, delta_y_all_un = flow_out_un
         warped_prod_edge_un = F.grid_sample(pre_clothes_edge_un.cuda(), last_flow_un.permute(0, 2, 3, 1),
                                             mode='bilinear', padding_mode='zeros')
@@ -277,7 +277,8 @@ def train_batch(opt, root_opt, train_loader,
             binary_mask = (warped_prod_edge_un > 0.5).float()
             warped_cloth_un = warped_cloth_un * binary_mask
             
-        flow_out_sup = PB_warp_model(concat_un.cuda(), clothes.cuda(), pre_clothes_edge.cuda())
+        with torch.no_grad():
+            flow_out_sup = PB_warp_model(concat_un.cuda(), clothes.cuda(), pre_clothes_edge.cuda())
         warped_cloth_sup, last_flow_sup, cond_sup_all, flow_sup_all, delta_list_sup, x_all_sup, x_edge_all_sup, delta_x_all_sup, delta_y_all_sup = flow_out_sup
 
         if root_opt.dataset_name == 'Rail':
@@ -303,7 +304,8 @@ def train_batch(opt, root_opt, train_loader,
         preserve_region = face_img + other_clothes_img + hand_img
 
         gen_inputs_un = torch.cat([preserve_region.cuda(), warped_cloth_un, warped_prod_edge_un, dense_preserve_mask], 1)
-        gen_outputs_un = PB_gen_model(gen_inputs_un)
+        with torch.no_grad():
+            gen_outputs_un = PB_gen_model(gen_inputs_un)
         p_rendered_un, m_composite_un = torch.split(gen_outputs_un, [3, 1], 1)
         p_rendered_un = torch.tanh(p_rendered_un)
         m_composite_un = torch.sigmoid(m_composite_un)
@@ -324,10 +326,10 @@ def train_batch(opt, root_opt, train_loader,
         loss_flow_sup_all = 0
 
         l1_loss_batch = torch.abs(warped_cloth_sup.detach() - person_clothes.cuda())
-        l1_loss_batch = l1_loss_batch.reshape(opt.batchSize, 3 * 256 * 192)
+        l1_loss_batch = l1_loss_batch.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch = l1_loss_batch.sum(dim=1) / (3 * 256 * 192)
         l1_loss_batch_pred = torch.abs(warped_cloth.detach() - person_clothes.cuda())
-        l1_loss_batch_pred = l1_loss_batch_pred.reshape(opt.batchSize, 3 * 256 * 192)
+        l1_loss_batch_pred = l1_loss_batch_pred.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch_pred = l1_loss_batch_pred.sum(dim=1) / (3 * 256 * 192)
         weight = (l1_loss_batch < l1_loss_batch_pred).float()
         num_all = len(np.where(weight.cpu().numpy() > 0)[0])
@@ -397,7 +399,7 @@ def train_batch(opt, root_opt, train_loader,
         'Parse Clothing Mask': e[0].cpu().expand(3, -1, -1), 
         'Warped Cloth': (g[0].cpu().detach() / 2 + 0.5), 
         'Warped Cloth Mask': h[0].cpu().detach().expand(3, -1, -1)}
-        log_results(log_images, log_losses, writer,wandb, epoch, iter_start_time=epoch_start_time, train=True)
+        log_results(log_images, log_losses, writer,wandb, epoch, iter_start_time=epoch_iter, train=True)
         rgb = (cv_img * 255).astype(np.uint8)
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"), bgr)
@@ -445,8 +447,6 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
         iter_start_time = time.time()
 
         total_steps += 1
-        epoch_iter += 1
-
         if root_opt.dataset_name == 'Rail':
             t_mask = torch.FloatTensor(((data['label'] == 3) | (data['label'] == 11)).cpu().numpy().astype(np.int64))
         else:
@@ -556,10 +556,10 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
         loss_flow_sup_all = 0
 
         l1_loss_batch = torch.abs(warped_cloth_sup.detach() - person_clothes.cuda())
-        l1_loss_batch = l1_loss_batch.reshape(opt.batchSize, 3 * 256 * 192)
+        l1_loss_batch = l1_loss_batch.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch = l1_loss_batch.sum(dim=1) / (3 * 256 * 192)
         l1_loss_batch_pred = torch.abs(warped_cloth.detach() - person_clothes.cuda())
-        l1_loss_batch_pred = l1_loss_batch_pred.reshape(opt.batchSize, 3 * 256 * 192)
+        l1_loss_batch_pred = l1_loss_batch_pred.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch_pred = l1_loss_batch_pred.sum(dim=1) / (3 * 256 * 192)
         weight = (l1_loss_batch < l1_loss_batch_pred).float()
         num_all = len(np.where(weight.cpu().numpy() > 0)[0])

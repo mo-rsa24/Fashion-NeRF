@@ -174,7 +174,7 @@ def save_checkpoint(model, save_path):
     torch.save(model.state_dict(), save_path)
 
 
-def load_checkpoint_parallel(model, checkpoint_path):
+def load_checkpoint_parallel(opt, model, checkpoint_path):
 
     if not os.path.exists(checkpoint_path):
         print('No checkpoint!')
@@ -186,7 +186,7 @@ def load_checkpoint_parallel(model, checkpoint_path):
         checkpoint_new[param] = checkpoint[param]
     model.load_state_dict(checkpoint_new)
 
-def load_checkpoint_part_parallel(model, checkpoint_path):
+def load_checkpoint_part_parallel(opt, model, checkpoint_path):
 
     if not os.path.exists(checkpoint_path):
         print('No checkpoint!')

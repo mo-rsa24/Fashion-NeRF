@@ -135,14 +135,10 @@ def get_root_opt_checkpoint_dir(parser, root_opt):
     parser.pb_gen_save_final_checkpoint_dir = os.path.join("/",*parser.pb_gen_save_final_checkpoint.split("/")[:-1])
     
     parser.pb_gen_load_final_checkpoint_dir = parser.pb_gen_load_final_checkpoint_dir.format(root_opt.parser_based_gen_experiment_from_run, root_opt.parser_based_gen_experiment_from_dir)
-    parser.pb_gen_load_final_checkpoint = os.path.join(parser.pb_gen_load_final_checkpoint_dir, parser.pb_warp_load_final_checkpoint)
+    parser.pb_gen_load_final_checkpoint = os.path.join(parser.pb_gen_load_final_checkpoint_dir, parser.pb_gen_load_final_checkpoint)
     parser.pb_gen_load_final_checkpoint= fix(parser.checkpoint_root_dir + "/" + parser.pb_gen_load_final_checkpoint)
     parser.pb_gen_load_final_checkpoint_dir = os.path.join("/",*parser.pb_gen_load_final_checkpoint.split("/")[:-1])
     # Parser Free Warping
-    parser.pf_warp_save_step_checkpoint_dir = parser.pf_warp_save_step_checkpoint_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
-    parser.pf_warp_save_step_checkpoint = os.path.join(parser.pf_warp_save_step_checkpoint_dir, parser.pf_warp_save_step_checkpoint)
-    parser.pf_warp_save_step_checkpoint= fix(parser.checkpoint_root_dir + "/" + parser.pf_warp_save_step_checkpoint)
-    parser.pf_warp_save_step_checkpoint_dir = os.path.join("/",*parser.pf_warp_save_step_checkpoint.split("/")[:-1])
 
     parser.pf_warp_save_final_checkpoint_dir = parser.pf_warp_save_final_checkpoint_dir.format(root_opt.experiment_run, root_opt.this_viton_save_to_dir)
     parser.pf_warp_save_final_checkpoint = os.path.join(parser.pf_warp_save_final_checkpoint_dir, parser.pf_warp_save_final_checkpoint)
@@ -301,14 +297,14 @@ def _train_pfafn_pf_warp_():
     PB_warp_model = AFWM(opt, 45)
     print(PB_warp_model)
     PB_warp_model.eval()
-    # PB_warp_model.cuda()
+    PB_warp_model.cuda()
     if os.path.exists(opt.pb_warp_load_final_checkpoint_dir):
         load_checkpoint_part_parallel(opt, PB_warp_model, opt.pb_warp_load_final_checkpoint)
 
     PB_gen_model = ResUnetGenerator(opt, 8, 4, 5, ngf=64, norm_layer=nn.BatchNorm2d)
     print(PB_gen_model)
     PB_gen_model.eval()
-    # PB_gen_model.cuda()
+    PB_gen_model.cuda()
     if os.path.exists(opt.pb_gen_load_final_checkpoint_dir):
         load_checkpoint_parallel(opt, PB_gen_model, opt.pb_gen_load_final_checkpoint)
 
@@ -359,7 +355,6 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
     val_warping_vgg = 0
     for i, data in enumerate(validation_loader):
         total_steps += 1
-        epoch_iter += 1
 
         t_mask = torch.FloatTensor((data['label'].cpu().numpy() == 7).astype(np.float))
         data['label'] = data['label'] * (1 - t_mask) + t_mask * 4
@@ -430,10 +425,10 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
         loss_flow_sup_all = 0
 
         l1_loss_batch = torch.abs(warped_cloth_sup.detach() - person_clothes.cuda())
-        l1_loss_batch = l1_loss_batch.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch = l1_loss_batch.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch = l1_loss_batch.sum(dim=1) / (3 * 256 * 192)
         l1_loss_batch_pred = torch.abs(warped_cloth.detach() - person_clothes.cuda())
-        l1_loss_batch_pred = l1_loss_batch_pred.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch_pred = l1_loss_batch_pred.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch_pred = l1_loss_batch_pred.sum(dim=1) / (3 * 256 * 192)
         weight = (l1_loss_batch < l1_loss_batch_pred).float()
         num_all = len(np.where(weight.cpu().numpy() > 0)[0])
@@ -541,12 +536,17 @@ def train_batch(opt, root_opt, train_loader,
         preserve_mask = torch.cat([face_mask, other_clothes_mask], 1)
 
         concat_un = torch.cat([preserve_mask.cuda(), densepose, pose.cuda()], 1)
-        flow_out_un = PB_warp_model(concat_un.cuda(), clothes_un.cuda(), pre_clothes_edge_un.cuda())
+        with torch.no_grad():
+            flow_out_un = PB_warp_model(concat_un.cuda(), clothes_un.cuda(), pre_clothes_edge_un.cuda())
         warped_cloth_un, last_flow_un, cond_un_all, flow_un_all, delta_list_un, x_all_un, x_edge_all_un, delta_x_all_un, delta_y_all_un = flow_out_un
         warped_prod_edge_un = F.grid_sample(pre_clothes_edge_un.cuda(), last_flow_un.permute(0, 2, 3, 1),
                                             mode='bilinear', padding_mode='zeros')
-
-        flow_out_sup = PB_warp_model(concat_un.cuda(), clothes.cuda(), pre_clothes_edge.cuda())
+        if root_opt.dataset_name == 'Rail' and epoch >0 :
+            binary_mask = (warped_prod_edge_un > 0.5).float()
+            warped_cloth_un = warped_cloth_un * binary_mask
+        
+        with torch.no_grad():
+            flow_out_sup = PB_warp_model(concat_un.cuda(), clothes.cuda(), pre_clothes_edge.cuda())
         warped_cloth_sup, last_flow_sup, cond_sup_all, flow_sup_all, delta_list_sup, x_all_sup, x_edge_all_sup, delta_x_all_sup, delta_y_all_sup = flow_out_sup
 
         arm_mask = torch.FloatTensor((data['label'].cpu().numpy() == 11).astype(np.float)) + torch.FloatTensor((data['label'].cpu().numpy() == 13).astype(np.float))
@@ -560,7 +560,8 @@ def train_batch(opt, root_opt, train_loader,
         preserve_region = face_img + other_clothes_img + hand_img
 
         gen_inputs_un = torch.cat([preserve_region.cuda(), warped_cloth_un, warped_prod_edge_un, dense_preserve_mask], 1)
-        gen_outputs_un = PB_gen_model(gen_inputs_un)
+        with torch.no_grad():
+            gen_outputs_un = PB_gen_model(gen_inputs_un)
         p_rendered_un, m_composite_un = torch.split(gen_outputs_un, [3, 1], 1)
         p_rendered_un = torch.tanh(p_rendered_un)
         m_composite_un = torch.sigmoid(m_composite_un)
@@ -581,10 +582,10 @@ def train_batch(opt, root_opt, train_loader,
         loss_flow_sup_all = 0
 
         l1_loss_batch = torch.abs(warped_cloth_sup.detach() - person_clothes.cuda())
-        l1_loss_batch = l1_loss_batch.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch = l1_loss_batch.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch = l1_loss_batch.sum(dim=1) / (3 * 256 * 192)
         l1_loss_batch_pred = torch.abs(warped_cloth.detach() - person_clothes.cuda())
-        l1_loss_batch_pred = l1_loss_batch_pred.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch_pred = l1_loss_batch_pred.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch_pred = l1_loss_batch_pred.sum(dim=1) / (3 * 256 * 192)
         weight = (l1_loss_batch < l1_loss_batch_pred).float()
         num_all = len(np.where(weight.cpu().numpy() > 0)[0])
@@ -634,6 +635,7 @@ def train_batch(opt, root_opt, train_loader,
 
         if epoch_iter >= dataset_size:
             break
+        
     # end of epoch
     if (epoch + 1) % opt.display_count == 0:
         a = real_image.float().cuda()

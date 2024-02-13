@@ -10,12 +10,12 @@ export DEBUG=1
 export SWEEPS=0
 export DATAMODE=train
 export WANDB=0
-export DEVICE=0
+export DEVICE=1
 export VITON_NAME=FS_VTON
 
 ./scripts/viton/viton.sh --job_name $VITON_NAME --task $TASK --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
-    --experiment_from_number 30 --run_from_number 22 \
-    --warp_experiment_from_number 30 --warp_run_from_number 22 --warp_load_from_model Rail \
+    --experiment_from_number 30 --run_from_number 29 \
+    --warp_experiment_from_number 30 --warp_run_from_number 29 --warp_load_from_model Rail \
     --gen_experiment_from_number 0 --gen_run_from_number 0 --gen_load_from_model Original \
     --dataset_name $DATASET_NAME --device $DEVICE --load_last_step False --run_wandb $WANDB \
     --niter 50 --niter_decay 50 --display_count 1 --print_step 1 --save_period 1 --val_count 1 \

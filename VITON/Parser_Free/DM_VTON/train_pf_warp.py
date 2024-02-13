@@ -313,7 +313,7 @@ def validate_batch(opt, root_opt, validation_loader,models,criterions,device,wri
     return loss_all.item()
 
 def train_batch(
-    opt, root_opt, train_loader, models, optimizers, criterions, device, writer, global_step,wandb=None, epoch=0,epoch_start_time=0
+    opt, root_opt, train_loader, models, optimizers, criterions, device, writer, wandb=None, epoch=0,epoch_start_time=0
 ):
     batch_start_time = time.time()
 

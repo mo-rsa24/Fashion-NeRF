@@ -83,8 +83,8 @@ def test_gmm(opt, test_loader, model, board):
         image_name = os.path.join(prediction_dir, inputs['im_name'][0])
         ground_truth_image_name = os.path.join(ground_truth_dir, inputs['im_name'][0])
         ground_truth_mask_name = os.path.join(ground_truth_mask_dir, inputs['im_name'][0])
-        save_image(warped_cloth, image_name)
-        save_image(im_c, ground_truth_image_name)
+        save_image(warped_cloth.cpu().detach() / 2 + 0.5, image_name)
+        save_image(im_c.cpu().detach() / 2 + 0.5, ground_truth_image_name)
         save_image(warped_mask, ground_truth_mask_name)
         if (step+1) % opt.display_count == 0:
             board_add_images(board, 'combine', visuals, step+1)

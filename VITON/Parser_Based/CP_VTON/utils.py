@@ -79,7 +79,7 @@ def get_root_opt_checkpoint_dir(opt, root_opt):
     opt.tom_save_final_checkpoint = fix(opt.checkpoint_root_dir + "/" + opt.tom_save_final_checkpoint)
     opt.tom_save_final_checkpoint_dir = os.path.join("/",*opt.tom_save_final_checkpoint.split("/")[:-1])
     
-    opt.tom_load_final_checkpoint_dir = opt.tom_load_final_checkpoint_dir.format(root_opt.gmm_experiment_from_run, root_opt.tom_experiment_from_dir)
+    opt.tom_load_final_checkpoint_dir = opt.tom_load_final_checkpoint_dir.format(root_opt.tom_experiment_from_run, root_opt.tom_experiment_from_dir)
     opt.tom_load_final_checkpoint_dir = fix(opt.tom_load_final_checkpoint_dir)
     opt.tom_load_final_checkpoint = os.path.join(opt.tom_load_final_checkpoint_dir, opt.tom_load_final_checkpoint)
     opt.tom_load_final_checkpoint = fix(opt.checkpoint_root_dir + "/" + opt.tom_load_final_checkpoint)

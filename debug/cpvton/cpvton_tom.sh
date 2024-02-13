@@ -8,14 +8,14 @@ export DATASET_NAME=Rail
 export TASK="TOM"
 export DEBUG=1
 export SWEEPS=0
-export DATAMODE=train
+export DATAMODE=test
 export WANDB=0
 export DEVICE=0
 export VITON_NAME=CP_VTON
 
 ./scripts/viton/viton.sh --job_name $VITON_NAME --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
   --experiment_from_number 0 --run_from_number 0 \
-  --gmm_experiment_from_number 7 --gmm_run_from_number 21 --gmm_load_from_model Rail  \
+  --gmm_experiment_from_number 0 --gmm_run_from_number 0 --gmm_load_from_model Original \
   --tom_experiment_from_number 0 --tom_run_from_number 0 --tom_load_from_model Original \
   --VITON_Type Parser_Based --VITON_Name $VITON_NAME --VITON_Model $TASK --stage $TASK --load_last_step False  \
   --res low_res --dataset_name $DATASET_NAME  --run_wandb $WANDB \

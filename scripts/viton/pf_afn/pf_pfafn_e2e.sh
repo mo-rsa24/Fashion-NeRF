@@ -19,7 +19,6 @@ python3  FashionNeRF.py --experiment_number ${args[experiment_number]} --run_num
   --parser_free_gen_experiment_from_number ${args[parser_free_gen_experiment_from_number]} --parser_free_gen_run_from_number ${args[parser_free_gen_run_from_number]} \
   --parser_free_gen_load_from_model ${args[parser_free_gen_load_from_model]} \
   --VITON_Type Parser_Free --VITON_Name PF_AFN --VITON_Model ${args[task]} \
-  --validate ${args[validate]} \
   --gpu_ids 0 --device ${args[device]} --res low_res --dataset_name ${args[dataset_name]} --run_wandb ${args[run_wandb]} \
   --niter ${args[niter]} --niter_decay ${args[niter_decay]} --display_count ${args[display_count]} --print_step ${args[print_step]} --save_period ${args[save_period]} \
   --low_res_dataset_name VITON-Clean \

@@ -7,7 +7,7 @@ from torchvision import transforms
 from PIL import Image
 from torchvision import models
 import os
-from preprocessing.segment_anything.segment_anything import SamAutomaticMaskGenerator, SamPredictor
+# from preprocessing.segment_anything.segment_anything import SamAutomaticMaskGenerator, SamPredictor
 from torch.nn.utils import spectral_norm
 from skimage.metrics import structural_similarity as ssim
 from VITON.Parser_Based.HR_VITON.eval_models.evals_model import PerceptualLoss

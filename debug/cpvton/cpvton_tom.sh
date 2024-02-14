@@ -15,8 +15,8 @@ export VITON_NAME=CP_VTON
 
 ./scripts/viton/viton.sh --job_name $VITON_NAME --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
   --experiment_from_number 0 --run_from_number 0 \
-  --gmm_experiment_from_number 0 --gmm_run_from_number 0 --gmm_load_from_model Original \
-  --tom_experiment_from_number 0 --tom_run_from_number 0 --tom_load_from_model Original \
+  --gmm_experiment_from_number 7 --gmm_run_from_number 29 --gmm_load_from_model Rail \
+  --tom_experiment_from_number 8 --tom_run_from_number 30 --tom_load_from_model Rail \
   --VITON_Type Parser_Based --VITON_Name $VITON_NAME --VITON_Model $TASK --stage $TASK --load_last_step False  \
   --res low_res --dataset_name $DATASET_NAME  --run_wandb $WANDB \
   --low_res_dataset_name viton_plus \

@@ -302,11 +302,11 @@ def validate_batch(opt, root_opt, validation_loader,models,criterions,device,wri
 
         if loss_lrdecay:
             loss_gen = (
-                loss_l1 * opt.lambda_loss_l1
-                + loss_l1_skin * opt.lambda_loss_l1_skin
+                loss_l1 * 5
+                + loss_l1_skin * 60
                 + loss_vgg
-                + loss_vgg_skin * opt.lambda_loss_vgg_skin
-                + bg_loss_l1 * opt.lambda_bg_loss_l1
+                + loss_vgg_skin * 4
+                + bg_loss_l1 * 5
                 + bg_loss_vgg
                 + 1 * loss_mask_l1
             )
@@ -345,7 +345,7 @@ def validate_batch(opt, root_opt, validation_loader,models,criterions,device,wri
         val_vgg_composition_loss += loss_vgg.item() 
         val_gan_composition_loss += loss_gen.item()
         val_composition_loss += loss_all.item()
-        
+        break
     log_losses = {'val_warping_loss': val_warping_loss / len(validation_loader.dataset) ,'val_l1_composition_loss': val_l1_composition_loss / len(validation_loader.dataset),'val_vgg_composition_loss': val_vgg_composition_loss / len(validation_loader.dataset),
                       'val_gan_composition_loss':val_gan_composition_loss / len(validation_loader.dataset),'val_composition_loss': val_composition_loss / len(validation_loader.dataset)}
     log_images = {'Val/Image': (a[0].cpu() / 2 + 0.5), 
@@ -443,9 +443,10 @@ def train_batch(
 
         concat_un = torch.cat([preserve_mask.to(device), densepose, pose.to(device)], 1)
         with cupy.cuda.Device(int(device.split(':')[-1])):
-            flow_out_un = pb_warp_model(
-                concat_un.to(device), clothes_un.to(device), pre_clothes_edge_un.to(device)
-            )
+            with torch.no_grad():
+                flow_out_un = pb_warp_model(
+                    concat_un.to(device), clothes_un.to(device), pre_clothes_edge_un.to(device)
+                )
         (
             warped_cloth_un,
             last_flow_un,
@@ -470,9 +471,10 @@ def train_batch(
             warped_cloth_un = warped_cloth_un * binary_mask
 
         with cupy.cuda.Device(int(device.split(':')[-1])):
-            flow_out_sup = pb_warp_model(
-                concat_un.to(device), clothes.to(device), pre_clothes_edge.to(device)
-            )
+            with torch.no_grad():
+                flow_out_sup = pb_warp_model(
+                    concat_un.to(device), clothes.to(device), pre_clothes_edge.to(device)
+                )
         (
             warped_cloth_sup,
             last_flow_sup,
@@ -519,7 +521,8 @@ def train_batch(
         gen_inputs_un = torch.cat(
             [preserve_region.to(device), warped_cloth_un, warped_prod_edge_un, dense_preserve_mask], 1
         )
-        gen_outputs_un = pb_gen_model(gen_inputs_un)
+        with torch.no_grad():
+            gen_outputs_un = pb_gen_model(gen_inputs_un)
         p_rendered_un, m_composite_un = torch.split(gen_outputs_un, [3, 1], 1)
         p_rendered_un = torch.tanh(p_rendered_un)
         m_composite_un = torch.sigmoid(m_composite_un)
@@ -637,13 +640,13 @@ def train_batch(
 
         if loss_lrdecay:
             loss_gen = (
-                loss_l1 * opt.lambda_loss_l1
-                + loss_l1_skin * opt.lambda_loss_l1_skin
+                loss_l1 * 5
+                + loss_l1_skin * 60
                 + loss_vgg
-                + loss_vgg_skin * opt.lambda_loss_vgg_skin
-                + bg_loss_l1 * opt.lambda_bg_loss_l1
+                + loss_vgg_skin * 4
+                + bg_loss_l1 * 5
                 + bg_loss_vgg
-                + opt.lambda_loss_l1_mask * loss_mask_l1
+                + 1 * loss_mask_l1
             )
         else:
             loss_gen = (
@@ -674,7 +677,7 @@ def train_batch(
         
         warping_loss += loss_warp.item()
         
-        train_batch_time = time.time() - batch_start_time
+        break
 
     # Visualize
     if (epoch + 1) % opt.display_count == 0:
@@ -759,10 +762,10 @@ def make_dirs(opt):
         os.makedirs(opt.pf_gen_save_step_checkpoint_dir)
     if not os.path.exists(opt.pf_warp_save_step_checkpoint_dir):
         os.makedirs(opt.pf_warp_save_step_checkpoint_dir)
-    if not os.path.exists(os.path.join(opt.result_dir, 'try_on')):
-        os.makedirs(os.path.join(opt.result_dir, 'try_on'))
-    if not os.path.join(opt.result_dir, 'visualize'):
-        os.makedirs(os.path.join(opt.result_dir, 'visualize'))
+    if not os.path.exists(os.path.join(opt.results_dir, 'try_on')):
+        os.makedirs(os.path.join(opt.results_dir, 'try_on'))
+    if not os.path.join(opt.results_dir, 'visualize'):
+        os.makedirs(os.path.join(opt.results_dir, 'visualize'))
     if not os.path.exists(opt.tensorboard_dir):
         os.makedirs(opt.tensorboard_dir)
     if not os.path.exists(os.path.join(root_opt.root_dir, root_opt.original_dir, 'val')):
@@ -880,7 +883,6 @@ def _train_pf_e2e_():
     global_step = 1
     t0 = time.time()
     for epoch in range(start_epoch, epoch_num + 1):
-        epoch_start_time = time.time()
 
         loss_lrdecay = epoch > opt.niter
         train_batch(
@@ -913,25 +915,20 @@ def _train_pf_e2e_():
                     'pf_gen': pf_gen_model,
                 }
             criterions={'L1': criterionL1, 'L2': criterionL2, 'VGG': criterionVGG}
-            validate_batch(opt, root_opt, validation_loader,models,criterions,device,writer,loss_lrdecay=False,wandb=wandb, epoch=epoch)
+            with torch.no_grad():
+                validate_batch(opt, root_opt, validation_loader,models,criterions,device,writer,loss_lrdecay=False,wandb=wandb, epoch=epoch)
                 
         # Save model
         warp_ckpt = {
             'epoch': epoch,
-            'best_fid': best_fid,
             'model': pf_warp_model.state_dict(),
             'optimizer': warp_optimizer.state_dict(),
         }
         gen_ckpt = {
             'epoch': epoch,
-            'best_fid': best_fid,
             'model': pf_gen_model.state_dict(),
             'optimizer': gen_optimizer.state_dict(),
         }
-        if root_opt.validate:
-            torch.save(warp_ckpt, opt.pf_warp_save_final_checkpoint)            
-            torch.save(gen_ckpt, opt.pf_gen_save_final_checkpoint)
-            
         if epoch % opt.save_period == 0:
             torch.save(warp_ckpt, opt.pf_warp_save_step_checkpoint % epoch)
             torch.save(gen_ckpt, opt.pf_gen_save_step_checkpoint % epoch)

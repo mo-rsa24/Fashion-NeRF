@@ -203,7 +203,6 @@ def parse_arguments():
     parser.add_argument('--val_count', type=int, default=100, help='Validation interval.')
     parser.add_argument("--lpips_count", type=int, default=1000)
     parser.add_argument('--no_test_visualize', type=bool, default=False, help='Flag not to visualize test results.')
-    parser.add_argument('--validate', type=bool, default=False, help='Validation')
     parser.add_argument('--num_test_visualize', type=int, default=4, help='Number of test visualizations.')
     
 

@@ -446,10 +446,10 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
         loss_flow_sup_all = 0
 
         l1_loss_batch = torch.abs(warped_cloth_sup.detach() - person_clothes.cuda())
-        l1_loss_batch = l1_loss_batch.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch = l1_loss_batch.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch = l1_loss_batch.sum(dim=1) / (3 * 256 * 192)
         l1_loss_batch_pred = torch.abs(warped_cloth.detach() - person_clothes.cuda())
-        l1_loss_batch_pred = l1_loss_batch_pred.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch_pred = l1_loss_batch_pred.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch_pred = l1_loss_batch_pred.sum(dim=1) / (3 * 256 * 192)
         weight = (l1_loss_batch < l1_loss_batch_pred).float()
         num_all = len(np.where(weight.cpu().numpy() > 0)[0])
@@ -527,16 +527,15 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
         valid_composition_loss += loss_all.item()
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"),bgr)
-        
     log_losses = {'val_warping_loss': valid_warping_loss / len(validation_loader.dataset) ,'val_l1_composition_loss': valid_l1_composition_loss / len(validation_loader.dataset),'val_vgg_composition_loss': valid_vgg_composition_loss / len(validation_loader.dataset),
                 'val_gan_composition_loss':valid_gan_composition_loss / len(validation_loader.dataset),'val_composition_loss': valid_composition_loss / len(validation_loader.dataset)}
     log_images = {'Val/Image': (a[0].cpu() / 2 + 0.5), 
         'Val/Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
         'Val/Clothing': (c[0].cpu() / 2 + 0.5), 
         'Val/Parse Clothing': (d[0].cpu() / 2 + 0.5), 
-        'Val/Parse Clothing Mask': j[0].cpu().expand(3, -1, -1), 
+        'Val/Parse Clothing Mask': person_clothes_edge[0].cpu().expand(3, -1, -1), 
         'Val/Warped Cloth': (f[0].cpu().detach() / 2 + 0.5), 
-        'Val/Warped Cloth Mask': person_clothes_edge[0].cpu().detach().expand(3, -1, -1),
+        'Val/Warped Cloth Mask': j[0].cpu().detach().expand(3, -1, -1),
         "Val/Composition": i[0].cpu() / 2 + 0.5}
     log_results(log_images, log_losses, writer,wandb, epoch, train=False)
         
@@ -620,12 +619,17 @@ def train_batch(opt, root_opt, train_loader, PB_warp_model,PF_warp_model,PB_gen_
         preserve_mask = torch.cat([face_mask, other_clothes_mask], 1)
 
         concat_un = torch.cat([preserve_mask.cuda(), densepose, pose.cuda()], 1)
-        flow_out_un = PB_warp_model(concat_un.cuda(), clothes_un.cuda(), pre_clothes_edge_un.cuda())
+        with torch.no_grad():
+            flow_out_un = PB_warp_model(concat_un.cuda(), clothes_un.cuda(), pre_clothes_edge_un.cuda())
         warped_cloth_un, last_flow_un, cond_un_all, flow_un_all, delta_list_un, x_all_un, x_edge_all_un, delta_x_all_un, delta_y_all_un = flow_out_un
         warped_prod_edge_un = F.grid_sample(pre_clothes_edge_un.cuda(), last_flow_un.permute(0, 2, 3, 1),
                                             mode='bilinear', padding_mode='zeros')
-
-        flow_out_sup = PB_warp_model(concat_un.cuda(), clothes.cuda(), pre_clothes_edge.cuda())
+        if root_opt.dataset_name == 'Rail' and epoch >0 :
+            binary_mask = (warped_prod_edge_un > 0.5).float()
+            warped_cloth_un = warped_cloth_un * binary_mask
+            
+        with torch.no_grad():
+            flow_out_sup = PB_warp_model(concat_un.cuda(), clothes.cuda(), pre_clothes_edge.cuda())
         warped_cloth_sup, last_flow_sup, cond_sup_all, flow_sup_all, delta_list_sup, x_all_sup, x_edge_all_sup, delta_x_all_sup, delta_y_all_sup = flow_out_sup
 
         arm_mask = torch.FloatTensor((data['label'].cpu().numpy() == 11).astype(np.float)) + torch.FloatTensor((data['label'].cpu().numpy() == 13).astype(np.float))
@@ -639,7 +643,8 @@ def train_batch(opt, root_opt, train_loader, PB_warp_model,PF_warp_model,PB_gen_
         preserve_region = face_img + other_clothes_img + hand_img
 
         gen_inputs_un = torch.cat([preserve_region.cuda(), warped_cloth_un, warped_prod_edge_un, dense_preserve_mask], 1)
-        gen_outputs_un = PB_gen_model(gen_inputs_un)
+        with torch.no_grad():
+            gen_outputs_un = PB_gen_model(gen_inputs_un)
         p_rendered_un, m_composite_un = torch.split(gen_outputs_un, [3, 1], 1)
         p_rendered_un = torch.tanh(p_rendered_un)
         m_composite_un = torch.sigmoid(m_composite_un)
@@ -660,10 +665,10 @@ def train_batch(opt, root_opt, train_loader, PB_warp_model,PF_warp_model,PB_gen_
         loss_flow_sup_all = 0
 
         l1_loss_batch = torch.abs(warped_cloth_sup.detach() - person_clothes.cuda())
-        l1_loss_batch = l1_loss_batch.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch = l1_loss_batch.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch = l1_loss_batch.sum(dim=1) / (3 * 256 * 192)
         l1_loss_batch_pred = torch.abs(warped_cloth.detach() - person_clothes.cuda())
-        l1_loss_batch_pred = l1_loss_batch_pred.reshape(opt.viton_batch_size, 3 * 256 * 192)
+        l1_loss_batch_pred = l1_loss_batch_pred.reshape(len(data['label']), 3 * 256 * 192)
         l1_loss_batch_pred = l1_loss_batch_pred.sum(dim=1) / (3 * 256 * 192)
         weight = (l1_loss_batch < l1_loss_batch_pred).float()
         num_all = len(np.where(weight.cpu().numpy() > 0)[0])
@@ -735,7 +740,6 @@ def train_batch(opt, root_opt, train_loader, PB_warp_model,PF_warp_model,PB_gen_
         
         if epoch_iter >= dataset_size:
             break
-
     if (epoch + 1) % opt.display_count == 0:
         a = real_image.float().cuda()
         b = p_tryon_un.detach()
@@ -756,9 +760,9 @@ def train_batch(opt, root_opt, train_loader, PB_warp_model,PF_warp_model,PB_gen_
         'Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
         'Clothing': (c[0].cpu() / 2 + 0.5), 
         'Parse Clothing': (d[0].cpu() / 2 + 0.5), 
-        'Parse Clothing Mask': j[0].cpu().expand(3, -1, -1), 
+        'Parse Clothing Mask': person_clothes_edge[0].cpu().expand(3, -1, -1), 
         'Warped Cloth': (f[0].cpu().detach() / 2 + 0.5), 
-        'Warped Cloth Mask': person_clothes_edge[0].cpu().detach().expand(3, -1, -1),
+        'Warped Cloth Mask': j[0].cpu().detach().expand(3, -1, -1),
         "Composition": i[0].cpu() / 2 + 0.5}
         log_results(log_images, log_losses, writer,wandb, epoch, iter_start_time=iter_start_time, train=True)
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)

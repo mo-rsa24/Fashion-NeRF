@@ -297,7 +297,7 @@ def train_try_on_generator(opt, train_loader,validation_loader, test_loader,boar
             'Parse Clothing Mask': pcm[0].cpu().expand(3, -1, -1),
             'Warped Cloth': (warped_cloth_paired[0].cpu().detach() / 2 + 0.5),
             'Warped Cloth Mask': warped_clothmask_paired[0].cpu().detach().expand(3, -1, -1),
-            'Composition': out}
+            'Composition': output[0].cpu() / 2 + 0.5}
             log_losses = {'composition_loss': loss_gen.item(),
             'gan_composition_loss': G_losses['GAN'].mean().item(),
             'feat_composition_loss': G_losses['GAN_Feat'].mean().item(),
@@ -679,30 +679,20 @@ def _train_tryon_():
     board = SummaryWriter(log_dir = opt.tensorboard_dir)
     torch.cuda.set_device(opt.device)
     if sweep_id is not None:
-        opt.lr = wandb.config.lr
-        opt.momentum = wandb.config.momentum
-        opt.segment_anything = wandb.config.segment_anything
-        opt.flow_self_attention = wandb.config.flow_self_attention
-        opt.flow_spatial_attention = wandb.config.flow_spatial_attention
-        opt.flow_channel_attention = wandb.config.flow_channel_attention
-        opt.feature_pyramid_self_attention = wandb.config.feature_pyramid_self_attention
-        opt.feature_pyramid_spatial_attention = wandb.config.feature_pyramid_spatial_attention
-        opt.feature_pyramid_channel_attention = wandb.config.feature_pyramid_channel_attention
         opt.G_lr = wandb.config.G_lr
         opt.D_lr = wandb.config.D_lr
-        opt.CElamda = wandb.config.CElamda
-        opt.GANlambda = wandb.config.GANlambda
-        opt.loss_l1_cloth_lambda = wandb.config.loss_l1_cloth_lambda
-        opt.occlusion = wandb.config.occlusion
-        opt.norm_G = wandb.config.norm_G
-        opt.num_D = wandb.config.num_D
+        opt.niter = wandb.config.niter
+        opt.niter_decay = wandb.config.niter_decay
+        opt.val_count = wandb.config.val_count
+        opt.display_count = wandb.config.display_count
         opt.init_type = wandb.config.init_type
-        opt.num_upsampling_layers = wandb.config.num_upsampling_layers
-        opt.lambda_l1 = wandb.config.lambda_l1
+        opt.init_variance = wandb.config.init_variance
         opt.lambda_vgg = wandb.config.lambda_vgg
         opt.lambda_feat = wandb.config.lambda_feat
-    num_cuda_devices = torch.cuda.device_count()
-    print("Number of available CUDA devices:", num_cuda_devices)
+        opt.upsample = wandb.config.upsample
+        opt.occlusion = wandb.config.occlusion
+        opt.num_D = wandb.config.num_D
+        
     experiment_string = f"{root_opt.experiment_run.replace('/','_')}_{root_opt.opt_vton_yaml.replace('yaml/','')}"
     with open(os.path.join(root_opt.experiment_run_yaml, experiment_string), 'w') as outfile:
         yaml.dump(vars(opt), outfile, default_flow_style=False)
@@ -733,7 +723,12 @@ def _train_tryon_():
         
     gen = ConditionGenerator(opt, input1_nc=input1_nc, input2_nc=input2_nc, output_nc=13, ngf=96, norm_layer=nn.BatchNorm2d,segment_anything=sam)
     if os.path.exists(opt.tocg_load_final_checkpoint):
+        print(f'Load pretrained model from {opt.tocg_load_final_checkpoint}')
+        print_log(log_path, f'Load pretrained model from {opt.tocg_load_final_checkpoint}')     
         load_checkpoint(gen, opt.tocg_load_final_checkpoint)
+    else:
+        print(f'Could not load pretrained model from {opt.tocg_load_final_checkpoint}')
+        print_log(log_path, f'Could not load pretrained model from {opt.tocg_load_final_checkpoint}')     
     # Generator model
     generator = SPADEGenerator(opt, 3+3+3)
     generator.print_network()

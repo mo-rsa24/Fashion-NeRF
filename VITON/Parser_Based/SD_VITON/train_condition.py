@@ -557,27 +557,19 @@ def _train_sd_viton_tocg_():
     torch.cuda.set_device(opt.device)
     if sweep_id is not None:
         opt.lr = wandb.config.lr
-        opt.momentum = wandb.config.momentum
-        opt.segment_anything = wandb.config.segment_anything
-        opt.flow_self_attention = wandb.config.flow_self_attention
-        opt.flow_spatial_attention = wandb.config.flow_spatial_attention
-        opt.flow_channel_attention = wandb.config.flow_channel_attention
-        opt.feature_pyramid_self_attention = wandb.config.feature_pyramid_self_attention
-        opt.feature_pyramid_spatial_attention = wandb.config.feature_pyramid_spatial_attention
-        opt.feature_pyramid_channel_attention = wandb.config.feature_pyramid_channel_attention
+        opt.optimizer = wandb.config.optimizer
         opt.G_lr = wandb.config.G_lr
         opt.D_lr = wandb.config.D_lr
         opt.CElamda = wandb.config.CElamda
         opt.GANlambda = wandb.config.GANlambda
+        opt.tvlambda = wandb.config.tvlambda
+        opt.tvlambda_tvob = wandb.config.tvlambda_tvob
+        opt.tvlambda_taco = wandb.config.tvlambda_taco
         opt.loss_l1_cloth_lambda = wandb.config.loss_l1_cloth_lambda
+        opt.upsample = wandb.config.upsample
         opt.occlusion = wandb.config.occlusion
-        opt.norm_G = wandb.config.norm_G
         opt.num_D = wandb.config.num_D
-        opt.init_type = wandb.config.init_type
-        opt.num_upsampling_layers = wandb.config.num_upsampling_layers
-        opt.lambda_l1 = wandb.config.lambda_l1
-        opt.lambda_vgg = wandb.config.lambda_vgg
-        opt.lambda_feat = wandb.config.lambda_feat
+        opt.cond_G_num_layers = wandb.config.cond_G_num_layers
 
     experiment_string = f"{root_opt.experiment_run.replace('/','_')}_{root_opt.opt_vton_yaml.replace('yaml/','')}"
     with open(os.path.join(root_opt.experiment_run_yaml, experiment_string), 'w') as outfile:

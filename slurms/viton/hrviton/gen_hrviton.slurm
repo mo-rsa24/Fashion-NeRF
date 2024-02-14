@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -t 72:00:00
-#SBATCH --exclude=mscluster108
+#SBATCH --exclude=mscluster108,mscluster107
 #SBATCH --ntasks=1
 #SBATCH --partition=biggpu
 
@@ -28,7 +28,7 @@ echo "Run Number: $RUN_NUMBER"
 echo "Run From Number: $RUN_FROM_NUMBER"
 echo "Dataset Name: $DATASET_NAME"
 echo "Device: $DEVICE"
-export CUDA_VISIBLE_DEVICES=$DEVICE
+
 ./scripts/viton/viton.sh --job_name $VITON_NAME --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
   --experiment_from_number 12 --run_from_number 21 \
   --tocg_experiment_from_number 12 --tocg_run_from_number 21 \

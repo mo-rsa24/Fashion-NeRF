@@ -49,24 +49,24 @@ VITON_selection_dir: "VITON/{}/{}"
 
 # ========================= TOCG
 tocg_save_step_checkpoint_dir: "/checkpoints/{}/{}/steps"
-tocg_save_step_checkpoint: "mtviton_%06d.pth"
+tocg_save_step_checkpoint: "tocg_%06d.pth"
 tocg_load_step_checkpoint_dir: "/checkpoints/{}/{}/steps"
-tocg_load_step_checkpoint: "mtviton_%06d.pth"
+tocg_load_step_checkpoint: "tocg_%06d.pth"
 
 tocg_save_final_checkpoint_dir: "/checkpoints/{}/{}"
-tocg_save_final_checkpoint: "mtviton.pth"
+tocg_save_final_checkpoint: "tocg.pth"
 tocg_load_final_checkpoint_dir: "/checkpoints/{}/{}"
-tocg_load_final_checkpoint: "tocg.pt"
+tocg_load_final_checkpoint: "tocg.pth"
 tocg_load_from_model: Original
 
 tocg_discriminator_save_step_checkpoint_dir: "/checkpoints/{}/{}/steps"
-tocg_discriminator_save_step_checkpoint: "discriminator_mtviton_%06d.pth"
+tocg_discriminator_save_step_checkpoint: "discriminator_tocg_%06d.pth"
 tocg_discriminator_load_step_checkpoint_dir: "/checkpoints/{}/{}/steps"
-tocg_discriminator_load_step_checkpoint: "discriminator_mtviton_%06d.pth"
+tocg_discriminator_load_step_checkpoint: "discriminator_tocg_%06d.pth"
 tocg_discriminator_save_final_checkpoint_dir: "/checkpoints/{}/{}"
-tocg_discriminator_save_final_checkpoint: "tocg_discriminator.pt"
+tocg_discriminator_save_final_checkpoint: "tocg_discriminator.pth"
 tocg_discriminator_load_final_checkpoint_dir: "/checkpoints/{}/{}"
-tocg_discriminator_load_final_checkpoint: "tocg_discriminator.pt"
+tocg_discriminator_load_final_checkpoint: "tocg_discriminator.pth"
 tocg_discriminator_load_from_model: Rail
 
 # ========================== GEN

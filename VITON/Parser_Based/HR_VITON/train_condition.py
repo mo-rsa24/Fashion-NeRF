@@ -533,7 +533,7 @@ def validate_tocg(opt, step, tocg,D, validation_loader,board,wandb):
             CE_loss = cross_entropy2d(fake_segmap, label_onehot.transpose(0, 1)[0].long())
             
             if opt.no_GAN_loss:
-                loss_G = (10 * loss_l1_cloth + loss_vgg + opt.tvlambda * loss_tv) + (CE_loss * opt.CElamda)
+                loss_G = (opt.loss_l1_cloth_lambda * loss_l1_cloth + loss_vgg + opt.tvlambda * loss_tv) + (CE_loss * opt.CElamda)
             else:
                 fake_segmap_softmax = torch.softmax(fake_segmap, 1)
                 pred_segmap = D(torch.cat((input1.detach(), input2.detach(), fake_segmap_softmax), dim=1))
@@ -661,28 +661,15 @@ def _train_hrviton_tocg_():
     board = SummaryWriter(log_dir = opt.tensorboard_dir)
     torch.cuda.set_device(f'cuda:{opt.device}')
     if sweep_id is not None:
-        opt.lr = wandb.config.lr
-        opt.momentum = wandb.config.momentum
-        opt.segment_anything = wandb.config.segment_anything
-        opt.flow_self_attention = wandb.config.flow_self_attention
-        opt.flow_spatial_attention = wandb.config.flow_spatial_attention
-        opt.flow_channel_attention = wandb.config.flow_channel_attention
-        opt.feature_pyramid_self_attention = wandb.config.feature_pyramid_self_attention
-        opt.feature_pyramid_spatial_attention = wandb.config.feature_pyramid_spatial_attention
-        opt.feature_pyramid_channel_attention = wandb.config.feature_pyramid_channel_attention
         opt.G_lr = wandb.config.G_lr
         opt.D_lr = wandb.config.D_lr
         opt.CElamda = wandb.config.CElamda
         opt.GANlambda = wandb.config.GANlambda
+        opt.tvlambda = wandb.config.tvlambda
         opt.loss_l1_cloth_lambda = wandb.config.loss_l1_cloth_lambda
+        opt.upsample = wandb.config.upsample
         opt.occlusion = wandb.config.occlusion
-        opt.norm_G = wandb.config.norm_G
         opt.num_D = wandb.config.num_D
-        opt.init_type = wandb.config.init_type
-        opt.num_upsampling_layers = wandb.config.num_upsampling_layers
-        opt.lambda_l1 = wandb.config.lambda_l1
-        opt.lambda_vgg = wandb.config.lambda_vgg
-        opt.lambda_feat = wandb.config.lambda_feat
 
     experiment_string = f"{root_opt.experiment_run.replace('/','_')}_{root_opt.opt_vton_yaml.replace('yaml/','')}"
     with open(os.path.join(root_opt.experiment_run_yaml, experiment_string), 'w') as outfile:

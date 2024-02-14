@@ -32,10 +32,10 @@ export CUDA_VISIBLE_DEVICES=$DEVICE
 
 
 ./scripts/viton/viton.sh --job_name $VITON_NAME --experiment_number $EXPERIMENT_NUMBER --run_number $RUN_NUMBER \
-  --experiment_from_number 12 --run_from_number 4 \
-  --tocg_experiment_from_number 12 --tocg_run_from_number 4 \
-  --tocg_discriminator_experiment_from_number 12 --tocg_discriminator_run_from_number 4 \
-  --tocg_load_from_model Rail --tocg_discriminator_load_from_model Rail \
+  --experiment_from_number 0 --run_from_number 0 \
+  --tocg_experiment_from_number 0 --tocg_run_from_number 0 \
+  --tocg_discriminator_experiment_from_number 0 --tocg_discriminator_run_from_number 0 \
+  --tocg_load_from_model Original --tocg_discriminator_load_from_model Original \
   --VITON_Type Parser_Based --VITON_Name $VITON_NAME --VITON_Model $TASK --load_last_step False \
   --gpu_ids $DEVICE --device $DEVICE --res high_res --dataset_name $DATASET_NAME --run_wandb $WANDB \
   --niter 10000 --niter_decay 10000 --display_count 1000 --print_step 1000 --save_period 1000 --val_count 1000 \

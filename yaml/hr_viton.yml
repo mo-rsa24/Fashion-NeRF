@@ -123,10 +123,10 @@ clothmask_composition: warp_grad # ['no_composition', 'detach', 'warp_grad']
 segment_anything: False
 flow_self_attention: False
 flow_spatial_attention: False
-flow_channel_attention: true
+flow_channel_attention: False
 feature_pyramid_self_attention: False
 feature_pyramid_spatial_attention: False
-feature_pyramid_channel_attention: true
+feature_pyramid_channel_attention: False
 edgeawaretv: no_edge # ['no_edge', 'last_only', 'weighted']
 add_lasttv: False
 G_lr: 0.0002

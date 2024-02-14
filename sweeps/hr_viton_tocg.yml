@@ -17,10 +17,6 @@ parameters:
     values: [0.5, 1, 1.5]
   tvlambda:
     values: [0.5, 1, 1.5]
-  tvlambda_tvob:
-    values: [1,2,3]
-  tvlambda_taco:
-    values: [1,2,3]
   loss_l1_cloth_lambda:
     values: [5, 10, 15]
   upsample:
@@ -29,6 +25,3 @@ parameters:
     values: [True, False]
   num_D:
     value: 2
-  cond_G_num_layers:
-    value: 5
-

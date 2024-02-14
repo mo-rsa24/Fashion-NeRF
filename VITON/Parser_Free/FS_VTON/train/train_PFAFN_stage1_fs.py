@@ -211,11 +211,8 @@ def train_batch(opt, root_opt, train_loader,
 
         total_steps += 1
         epoch_iter += 1
-        
-        if root_opt.dataset_name == 'Rail':
-            t_mask = torch.FloatTensor(((data['label'] == 3) | (data['label'] == 11)).cpu().numpy().astype(np.int64))
-        else:
-            t_mask = torch.FloatTensor((data['label'].cpu().numpy() == 7).astype(np.float64))
+    
+        t_mask = torch.FloatTensor((data['label'].cpu().numpy() == 7).astype(np.float64))
         data['label'] = data['label'] * (1 - t_mask) + t_mask * 4
         edge = data['edge']
         pre_clothes_edge = torch.FloatTensor((edge.detach().numpy() > 0.5).astype(np.int))
@@ -225,10 +222,7 @@ def train_batch(opt, root_opt, train_loader,
         pre_clothes_edge_un = torch.FloatTensor((edge_un.detach().numpy() > 0.5).astype(np.int))
         clothes_un = data['color_un']
         clothes_un = clothes_un * pre_clothes_edge_un
-        if root_opt.dataset_name == 'Rail':
-            person_clothes_edge = torch.FloatTensor(((data['label'] == 5) | (data['label'] == 6) | (data['label'] == 7)).cpu().numpy().astype(np.int64))
-        else:
-            person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
+        person_clothes_edge = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int64))
         real_image = data['image']
         person_clothes = real_image * person_clothes_edge
         pose = data['pose']
@@ -238,31 +232,16 @@ def train_batch(opt, root_opt, train_loader,
         densepose = torch.cuda.FloatTensor(torch.Size(oneHot_size1)).zero_()
         densepose = densepose.scatter_(1, data['densepose'].data.long().cuda(), 1.0)
         densepose_fore = data['densepose'] / 24
-        if root_opt.dataset_name == 'Rail':
-            face_mask = torch.FloatTensor(
-            (data['label'].cpu().numpy() == 1).astype(np.int64)
-            ) + torch.FloatTensor(((data['label'] == 4) | (data['label'] == 13)).cpu().numpy().astype(np.int64))
-        else:
-            face_mask = torch.FloatTensor(
-            (data['label'].cpu().numpy() == 1).astype(np.int64)
-            ) + torch.FloatTensor((data['label'].cpu().numpy() == 12).astype(np.int64))
-        if root_opt.dataset_name == 'Rail':    
-            other_clothes_mask = (
-                torch.FloatTensor((data['label'].cpu().numpy() == 18).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 19).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 16).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 17).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 9).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 12).astype(np.int64))
-            )
-        else:
-            other_clothes_mask = (
-                torch.FloatTensor((data['label'].cpu().numpy() == 5).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 6).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 8).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 9).astype(np.int64))
-                + torch.FloatTensor((data['label'].cpu().numpy() == 10).astype(np.int64))
-            )
+        face_mask = torch.FloatTensor(
+        (data['label'].cpu().numpy() == 1).astype(np.int64)
+        ) + torch.FloatTensor((data['label'].cpu().numpy() == 12).astype(np.int64))
+        other_clothes_mask = (
+            torch.FloatTensor((data['label'].cpu().numpy() == 5).astype(np.int64))
+            + torch.FloatTensor((data['label'].cpu().numpy() == 6).astype(np.int64))
+            + torch.FloatTensor((data['label'].cpu().numpy() == 8).astype(np.int64))
+            + torch.FloatTensor((data['label'].cpu().numpy() == 9).astype(np.int64))
+            + torch.FloatTensor((data['label'].cpu().numpy() == 10).astype(np.int64))
+        )
         face_img = face_mask * real_image
         other_clothes_img = other_clothes_mask * real_image
         preserve_mask = torch.cat([face_mask, other_clothes_mask], 1)
@@ -280,21 +259,12 @@ def train_batch(opt, root_opt, train_loader,
         with torch.no_grad():
             flow_out_sup = PB_warp_model(concat_un.cuda(), clothes.cuda(), pre_clothes_edge.cuda())
         warped_cloth_sup, last_flow_sup, cond_sup_all, flow_sup_all, delta_list_sup, x_all_sup, x_edge_all_sup, delta_x_all_sup, delta_y_all_sup = flow_out_sup
-
-        if root_opt.dataset_name == 'Rail':
-            arm_mask = torch.FloatTensor(
-                (data['label'].cpu().numpy() == 14).astype(np.float64)
-            ) + torch.FloatTensor((data['label'].cpu().numpy() == 15).astype(np.float64))
-            hand_mask = torch.FloatTensor(
-                (data['densepose'].cpu().numpy() == 3).astype(np.int64)
-            ) + torch.FloatTensor((data['densepose'].cpu().numpy() == 4).astype(np.int64))
-        else:
-            arm_mask = torch.FloatTensor(
-                (data['label'].cpu().numpy() == 11).astype(np.float64)
-            ) + torch.FloatTensor((data['label'].cpu().numpy() == 13).astype(np.float64))
-            hand_mask = torch.FloatTensor(
-                (data['densepose'].cpu().numpy() == 3).astype(np.int64)
-            ) + torch.FloatTensor((data['densepose'].cpu().numpy() == 4).astype(np.int64))
+        arm_mask = torch.FloatTensor(
+            (data['label'].cpu().numpy() == 11).astype(np.float64)
+        ) + torch.FloatTensor((data['label'].cpu().numpy() == 13).astype(np.float64))
+        hand_mask = torch.FloatTensor(
+            (data['densepose'].cpu().numpy() == 3).astype(np.int64)
+        ) + torch.FloatTensor((data['densepose'].cpu().numpy() == 4).astype(np.int64))
         dense_preserve_mask = torch.FloatTensor((data['densepose'].cpu().numpy() == 15).astype(np.int)) + torch.FloatTensor((data['densepose'].cpu().numpy() == 16).astype(np.int)) \
                             + torch.FloatTensor((data['densepose'].cpu().numpy() == 17).astype(np.int)) + torch.FloatTensor((data['densepose'].cpu().numpy() == 18).astype(np.int)) \
                             + torch.FloatTensor((data['densepose'].cpu().numpy() == 19).astype(np.int)) + torch.FloatTensor((data['densepose'].cpu().numpy() == 20).astype(np.int)) \
@@ -378,7 +348,6 @@ def train_batch(opt, root_opt, train_loader,
         ############## Display results and errors #########
         if epoch_iter >= dataset_size:
             break
-        
     if (epoch + 1) % opt.display_count == 0:
         a = real_image.float().cuda()
         b = p_tryon_un.detach()

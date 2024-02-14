@@ -482,10 +482,10 @@ def validate_batch(opt, root_opt, validation_loader, PB_warp_model,PF_warp_model
     log_images = {'Val/Image': (a[0].cpu() / 2 + 0.5), 
     'Val/Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
     'Val/Clothing': (c[0].cpu() / 2+ 0.5), 
-    'Val/Parse Clothing': (b[0].cpu() / 2 + 0.5), 
-    'Val/Parse Clothing Mask': person_clothes_edge[0].cpu().expand(3, -1, -1), 
-    'Val/Warped Cloth': (e[0].cpu().detach() / 2 + 0.5), 
-    'Val/Warped Cloth Mask': f[0].cpu().detach().expand(3, -1, -1)}
+    'Val/Parse Clothing': (d[0].cpu() / 2 + 0.5), 
+    'Val/Parse Clothing Mask': e[0].cpu().expand(3, -1, -1), 
+    'Val/Warped Cloth': (g[0].cpu().detach() / 2 + 0.5), 
+    'Val/Warped Cloth Mask': h[0].cpu().detach().expand(3, -1, -1)}
     log_results(log_images, log_losses, writer,wandb, epoch, train=False)
          
 
@@ -653,10 +653,10 @@ def train_batch(opt, root_opt, train_loader,
         log_images = {'Image': (a[0].cpu() / 2 + 0.5), 
         'Pose Image': (pose_map[0].cpu() / 2 + 0.5), 
         'Clothing': (c[0].cpu() / 2 + 0.5), 
-        'Parse Clothing': (b[0].cpu() / 2 + 0.5), 
-        'Parse Clothing Mask': person_clothes_edge[0].cpu().expand(3, -1, -1), 
-        'Warped Cloth': (e[0].cpu().detach() / 2 + 0.5), 
-        'Warped Cloth Mask': f[0].cpu().detach().expand(3, -1, -1)}
+        'Parse Clothing': (d[0].cpu() / 2 + 0.5), 
+        'Parse Clothing Mask': e[0].cpu().expand(3, -1, -1), 
+        'Warped Cloth': (g[0].cpu().detach() / 2 + 0.5), 
+        'Warped Cloth Mask': h[0].cpu().detach().expand(3, -1, -1)}
         log_results(log_images, log_losses, writer,wandb, epoch, iter_start_time=iter_start_time, train=True)
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(opt.results_dir, f"{epoch}.jpg"),bgr)
